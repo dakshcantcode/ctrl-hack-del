@@ -190,6 +190,8 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const stemPositionsRef = useRef<{ x: number; y: number }[]>([]);
   const hoverExitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nucleusPosRef = useRef<{ x: number; y: number; r: number }>({ x: 0, y: 0, r: 0 });
+  const nucleusHoveredRef = useRef(false);
 
   // Screen-space stem positions exposed to React for the overlay
   const [stemPositions, setStemPositions] = useState<{ x: number; y: number }[]>([]);
@@ -200,6 +202,7 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
     isWarping,
     hasReachedNucleus,
     handleWheel,
+    resetWarp,
     activeStem,
     setActiveStem,
   } = useNeuronZoom({ warpThreshold: 0.85 });
@@ -219,12 +222,14 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
   const isWarpingRef = useRef(false);
   const hasReachedNucleusRef = useRef(false);
   const handleWheelRef = useRef(handleWheel);
+  const resetWarpRef = useRef(resetWarp);
 
   // Keep refs in sync with latest state (synchronous, no effect lag)
   zoomRef.current = zoom;
   isWarpingRef.current = isWarping;
   hasReachedNucleusRef.current = hasReachedNucleus;
   handleWheelRef.current = handleWheel;
+  resetWarpRef.current = resetWarp;
   activeStemRef.current = activeStem;
 
   // Build neuron tree once using multiple root directions
@@ -281,6 +286,16 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
       const rect = canvas!.getBoundingClientRect();
       mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
+      // Nucleus hover detection (always, when inside nucleus)
+      if (hasReachedNucleusRef.current) {
+        const np = nucleusPosRef.current;
+        const ndx = mouseRef.current.x - np.x;
+        const ndy = mouseRef.current.y - np.y;
+        const overNucleus = ndx * ndx + ndy * ndy < np.r * np.r;
+        nucleusHoveredRef.current = overNucleus;
+        canvas!.style.cursor = overNucleus ? 'pointer' : 'default';
+      }
+
       if (!hasReachedNucleusRef.current) return;
 
       const positions = stemPositionsRef.current;
@@ -328,9 +343,30 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
 
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
+
+    // Nucleus click → reset to hero view
+    function onClick() {
+      if (!hasReachedNucleusRef.current) return;
+      const np = nucleusPosRef.current;
+      const ndx = mouseRef.current.x - np.x;
+      const ndy = mouseRef.current.y - np.y;
+      if (ndx * ndx + ndy * ndy < np.r * np.r) {
+        nucleusHoveredRef.current = false;
+        canvas!.style.cursor = 'default';
+        // Clear any active fact overlays
+        hoveredStemRef.current = null;
+        setHoveredStemId(null);
+        setActiveStem(null);
+        // Reset camera, zoom, and warp state
+        resetWarpRef.current();
+      }
+    }
+    canvas.addEventListener("click", onClick);
+
     return () => {
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("mouseleave", onLeave);
+      canvas.removeEventListener("click", onClick);
       if (hoverExitTimer.current) clearTimeout(hoverExitTimer.current);
     };
   }, [setActiveStem]);
@@ -484,7 +520,8 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
       rotAngleX: number,
       zoomLevel: number,
       camZ: number,
-      warpFactor: number
+      warpFactor: number,
+      hoverScale: number
     ) {
       let nucleusPos: Vec3 = { x: 0, y: 0, z: 0 };
       nucleusPos = rotateY(nucleusPos, rotAngleY);
@@ -509,7 +546,10 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
       const pulse = 1 + 0.2 * Math.sin(time * 3);
       // During warp, nucleus expands dramatically
       const warpExpand = 1 + warpFactor * 8;
-      const radius = baseRadius * projected.scale * pulse * warpExpand;
+      const radius = baseRadius * projected.scale * pulse * warpExpand * hoverScale;
+
+      // Store projected nucleus position + hit-radius for hover/click detection
+      nucleusPosRef.current = { x: projected.x, y: projected.y, r: radius * 1.5 };
 
       // Outer glow — near-clip fades it as camera passes through (intensified)
       const glowAlpha = (0.5 + warpFactor * 0.5) * pulse * nearFade;
@@ -764,8 +804,9 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
         renderBranch(tree, time, focalLength, cx, cy, rotY, rotXAngle, 1.0, cameraZPos, warpFactor, maxFogDist);
       });
 
-      // Render nucleus (near-clip fades as camera passes through)
-      renderNucleus(time, focalLength, cx, cy, rotY, rotXAngle, currentZoom, cameraZPos, warpFactor);
+      // Render nucleus (hover-scale + near-clip fades as camera passes through)
+      const nucleusHoverScale = nucleusHoveredRef.current ? 1.2 : 1;
+      renderNucleus(time, focalLength, cx, cy, rotY, rotXAngle, currentZoom, cameraZPos, warpFactor, nucleusHoverScale);
 
       // Render synapse particles (square pixels + depth-fog)
       renderParticles(time, focalLength, cx, cy, rotY, rotXAngle, cameraZPos, warpFactor, maxFogDist);
@@ -906,7 +947,7 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
     <div className="relative w-full h-full">
       <canvas
         ref={canvasRef}
-        className="w-full h-full cursor-default"
+        className="w-full h-full"
         style={{ touchAction: "none" }}
       />
 
