@@ -22,6 +22,9 @@ import {
   CheckCircle2,
   Info,
   Upload,
+  ExternalLink,
+  Loader2,
+  Send,
 } from "lucide-react";
 import {
   Card,
@@ -144,6 +147,8 @@ export default function DetectorPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [activeTest, setActiveTest] = useState<string>("spiral");
   const [showInfoDialog, setShowInfoDialog] = useState(false);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [prediction, setPrediction] = useState<{ label: string; confidence: number } | null>(null);
 
   const handleSpiralUpdate = useCallback((a: SpiralAnalysis) => {
     setAnalysis({
@@ -178,38 +183,47 @@ export default function DetectorPage() {
       waveRef.current?.clear();
     }
     setAnalysis(null);
+    setPrediction(null);
   }, [activeTest]);
 
-  const handleExport = useCallback(async () => {
-    if (activeTest === "spiral" && spiralRef.current) {
-      const fd = await spiralRef.current.getFormData();
-      if (fd) {
-        console.log("[NeuroDetect] Spiral FormData ready:", {
-          image: fd.get("image"),
-          coordinates: fd.get("coordinates"),
-          test_type: fd.get("test_type"),
-        });
-        // TODO: POST to ML backend
-      }
-    } else if (activeTest === "wave" && waveRef.current) {
-      const blob = await waveRef.current.getImageBlob();
-      const points = waveRef.current.getPoints();
-      const waveAnalysis = waveRef.current.getAnalysis();
-      if (blob && points.length > 0) {
-        const fd = new FormData();
-        fd.append("image", blob, "wave.png");
-        fd.append("coordinates", JSON.stringify(points));
-        fd.append("test_type", "wave");
-        if (waveAnalysis) {
-          fd.append("analysis", JSON.stringify(waveAnalysis));
+  const handlePredict = useCallback(async () => {
+    setIsPredicting(true);
+    setPrediction(null);
+    try {
+      let fd: FormData | null = null;
+
+      if (activeTest === "spiral" && spiralRef.current) {
+        fd = await spiralRef.current.getFormData();
+      } else if (activeTest === "wave" && waveRef.current) {
+        const blob = await waveRef.current.getImageBlob();
+        const points = waveRef.current.getPoints();
+        if (blob && points.length > 0) {
+          fd = new FormData();
+          fd.append("image", blob, "wave.png");
+          fd.append("coordinates", JSON.stringify(points));
+          fd.append("test_type", "wave");
         }
-        console.log("[NeuroDetect] Wave FormData ready:", {
-          image: fd.get("image"),
-          coordinates: fd.get("coordinates"),
-          test_type: fd.get("test_type"),
-        });
-        // TODO: POST to ML backend
       }
+
+      if (!fd) {
+        console.warn("[NeuroDetect] No drawing data to send.");
+        return;
+      }
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const res = await fetch(`${API_URL}/predict`, {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+      const data = await res.json();
+      setPrediction({ label: data.label, confidence: data.confidence });
+    } catch (err) {
+      console.error("[NeuroDetect] Prediction failed:", err);
+      setPrediction({ label: "Error — backend unreachable", confidence: 0 });
+    } finally {
+      setIsPredicting(false);
     }
   }, [activeTest]);
 
@@ -220,7 +234,7 @@ export default function DetectorPage() {
       {/* Header */}
       <header className="border-b border-zinc-900 bg-black/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="p-2 rounded-lg bg-cyan-500/10">
               <Brain className="w-5 h-5 text-cyan-400" />
             </div>
@@ -232,7 +246,7 @@ export default function DetectorPage() {
                 Motor Function Analysis
               </p>
             </div>
-          </div>
+          </a>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -266,7 +280,7 @@ export default function DetectorPage() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <Tabs value={activeTest} onValueChange={(v) => { setActiveTest(v); setAnalysis(null); }}>
+                  <Tabs value={activeTest} onValueChange={(v) => { if (v === "upload" && activeTest === "wave") return; setActiveTest(v); setAnalysis(null); setPrediction(null); }}>
                     <TabsList>
                       <TabsTrigger value="spiral" className="gap-1.5">
                         <Target className="w-3.5 h-3.5" />
@@ -276,7 +290,7 @@ export default function DetectorPage() {
                         <Activity className="w-3.5 h-3.5" />
                         Wave Analysis
                       </TabsTrigger>
-                      <TabsTrigger value="upload" className="gap-1.5">
+                      <TabsTrigger value="upload" className="gap-1.5" disabled={activeTest === "wave"}>
                         <Upload className="w-3.5 h-3.5" />
                         Upload
                       </TabsTrigger>
@@ -344,18 +358,40 @@ export default function DetectorPage() {
                   />
                 )}
 
-                {/* Export Button */}
+                {/* Predict Button */}
                 {analysis && activeTest !== "upload" && (
                   <div className="mt-4 flex justify-end">
                     <Button
-                      variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs"
-                      onClick={handleExport}
+                      onClick={handlePredict}
+                      disabled={isPredicting}
                     >
-                      <Upload className="w-3.5 h-3.5" />
-                      Export FormData
+                      {isPredicting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5" />
+                      )}
+                      {isPredicting ? "Predicting…" : "Predict"}
                     </Button>
+                  </div>
+                )}
+
+                {/* ML Prediction Result */}
+                {prediction && (
+                  <div className={`mt-3 p-3 rounded-lg border text-sm ${
+                    prediction.confidence > 0
+                      ? "border-cyan-500/20 bg-cyan-500/5"
+                      : "border-red-500/20 bg-red-500/5"
+                  }`}>
+                    <p className="font-medium text-zinc-200">
+                      Result: <span className="text-cyan-400">{prediction.label}</span>
+                    </p>
+                    {prediction.confidence > 0 && (
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Confidence: {(prediction.confidence * 100).toFixed(1)}%
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -474,34 +510,69 @@ export default function DetectorPage() {
         </div>
       </main>
 
-      {/* Info Dialog */}
+      {/* Learn More Dialog — Research Sources */}
       <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>About the Diagnostic Tests</DialogTitle>
-            <DialogDescription className="space-y-3 pt-2">
+            <DialogTitle>Learn More — Research &amp; Sources</DialogTitle>
+            <DialogDescription className="space-y-4 pt-2">
               <p>
-                NeuroDetect provides two drawing-based motor function tests,
-                both validated in clinical literature:
+                NeuroDetect implements validated clinical screening methods
+                for Parkinson&apos;s disease. Below are key references and
+                external resources for deeper reading.
               </p>
-              <ul className="list-disc pl-5 space-y-1 text-zinc-300">
-                <li>
-                  <strong>Archimedes Spiral</strong> — measures radial
-                  deviation and speed consistency while tracing a spiral
-                </li>
-                <li>
-                  <strong>Wave Analysis</strong> — measures sinusoidal
-                  tracking accuracy and tremor frequency
-                </li>
-              </ul>
-              <p>
-                Both tests capture (x, y, t) coordinates at high resolution.
-                Data is packaged as FormData with an image blob and JSON
-                coordinate array for ML pipeline integration.
-              </p>
-              <p className="text-zinc-500 text-xs">
-                Reference: Pullman SL. Spiral analysis: a new technique for
-                measuring tremor with a digitizing tablet. Mov Disord. 1998.
+
+              <div className="space-y-3">
+                <h4 className="text-zinc-200 font-semibold text-sm">Research Papers</h4>
+                <ul className="space-y-2 text-zinc-400 text-xs">
+                  <li className="flex items-start gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-500" />
+                    <a href="https://pubmed.ncbi.nlm.nih.gov/9629849/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+                      Pullman SL. <em>Spiral analysis: a new technique for measuring tremor with a digitizing tablet.</em> Mov Disord. 1998.
+                    </a>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-500" />
+                    <a href="https://pubmed.ncbi.nlm.nih.gov/25904359/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+                      Zham P et al. <em>Efficacy of guided and unguided spiral drawing in assessing motor symptoms of Parkinson&apos;s disease.</em> IEEE EMBC. 2017.
+                    </a>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-500" />
+                    <a href="https://pubmed.ncbi.nlm.nih.gov/30131219/" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+                      Pereira CR et al. <em>A new computer vision–based approach to aid the diagnosis of Parkinson&apos;s disease.</em> Comp Methods &amp; Programs in Biomed. 2016.
+                    </a>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-zinc-200 font-semibold text-sm">External Resources</h4>
+                <ul className="space-y-2 text-zinc-400 text-xs">
+                  <li className="flex items-start gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-500" />
+                    <a href="https://www.parkinson.org/understanding-parkinsons" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+                      Parkinson&apos;s Foundation — Understanding Parkinson&apos;s Disease
+                    </a>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-500" />
+                    <a href="https://www.ninds.nih.gov/health-information/disorders/parkinsons-disease" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+                      NIH NINDS — Parkinson&apos;s Disease Information Page
+                    </a>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-500" />
+                    <a href="https://www.michaeljfox.org/parkinsons-101" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+                      Michael J. Fox Foundation — Parkinson&apos;s 101
+                    </a>
+                  </li>
+                </ul>
+              </div>
+
+              <p className="text-zinc-600 text-[11px] border-t border-zinc-800 pt-3">
+                This tool is for educational and screening purposes only.
+                It is not a medical diagnostic device.
               </p>
             </DialogDescription>
           </DialogHeader>
