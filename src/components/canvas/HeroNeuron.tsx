@@ -1,10 +1,9 @@
 /**
  * NeuroDetect — Living Neuron 3D Canvas Engine
  *
- * Recursive 3D projected neuron visualization rendered on HTML5 Canvas.
- * Features a Focus Mode toggle for intentional zoom interaction (no
- * scroll-hijacking), a warp-speed entry animation when approaching
- * the nucleus, and an animated fact carousel on arrival.
+ * Recursive 3D projected neuron with invisible scroll-interceptor
+ * zoom, immersive warp-speed dive, and synaptic fact-stems that
+ * branch from the nucleus after the warp completes.
  *
  * @module components/canvas/HeroNeuron
  */
@@ -15,8 +14,9 @@ import React, {
   useRef,
   useEffect,
   useMemo,
+  useState,
 } from "react";
-import { AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   project3D,
   rotateX,
@@ -26,9 +26,6 @@ import {
   type Vec3,
 } from "@/lib/utils";
 import { useNeuronZoom } from "@/hooks/use-neuron-zoom";
-import { FactCarousel } from "@/components/ui/fact-carousel";
-import { Crosshair, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 /* ─── Branch Node Type ─────────────────────────────────────────────────── */
 
@@ -109,20 +106,97 @@ interface Particle {
 
 /* ─── Main Component ──────────────────────────────────────────────────── */
 
+/* ─── Synaptic Stem Definitions ────────────────────────────────────────── */
+
+interface SynapticStem {
+  id: number;
+  angle: number;      // radians
+  length: number;     // px from center
+  fact: {
+    title: string;
+    body: string;
+    stat: string;
+    statLabel: string;
+  };
+}
+
+const SYNAPTIC_STEMS: SynapticStem[] = [
+  {
+    id: 0,
+    angle: -Math.PI / 2,          // top
+    length: 120,
+    fact: {
+      title: "Dopamine Depletion",
+      body: "Loss of dopaminergic neurons in the substantia nigra disrupts motor signal transmission, causing bradykinesia and rigidity.",
+      stat: "60-80%",
+      statLabel: "neurons lost before symptoms appear",
+    },
+  },
+  {
+    id: 1,
+    angle: -Math.PI / 2 + (2 * Math.PI) / 5,
+    length: 110,
+    fact: {
+      title: "Micrographia",
+      body: "Progressive handwriting shrinkage is one of the earliest motor signs, detectable years before clinical diagnosis.",
+      stat: "5-8 yrs",
+      statLabel: "early detection window",
+    },
+  },
+  {
+    id: 2,
+    angle: -Math.PI / 2 + (4 * Math.PI) / 5,
+    length: 115,
+    fact: {
+      title: "Resting Tremor",
+      body: "A 4-6 Hz oscillation, typically starting unilaterally in the hand, is the hallmark motor symptom of Parkinson's disease.",
+      stat: "4-6 Hz",
+      statLabel: "characteristic tremor frequency",
+    },
+  },
+  {
+    id: 3,
+    angle: -Math.PI / 2 + (6 * Math.PI) / 5,
+    length: 105,
+    fact: {
+      title: "Alpha-Synuclein",
+      body: "Misfolded α-synuclein aggregates into Lewy bodies, spreading through neural circuits in a prion-like cascade.",
+      stat: "140 aa",
+      statLabel: "amino-acid protein linked to pathology",
+    },
+  },
+  {
+    id: 4,
+    angle: -Math.PI / 2 + (8 * Math.PI) / 5,
+    length: 118,
+    fact: {
+      title: "Early Screening",
+      body: "AI-powered spiral and wave analysis can detect subtle motor biomarkers with clinical-grade sensitivity.",
+      stat: "92%+",
+      statLabel: "detection accuracy with ML models",
+    },
+  },
+];
+
+/* ─── Main Component ──────────────────────────────────────────────────── */
+
 export default function HeroNeuron() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
   const timeRef = useRef<number>(0);
   const warpProgressRef = useRef<number>(0);
+  const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const stemPositionsRef = useRef<{ x: number; y: number }[]>([]);
+
+  const [hoveredStem, setHoveredStem] = useState<number | null>(null);
 
   const {
     zoom,
-    focusMode,
     isWarping,
     hasReachedNucleus,
-    toggleFocusMode,
     handleWheel,
-    resetWarp,
+    activeStem,
+    setActiveStem,
   } = useNeuronZoom({ warpThreshold: 0.85 });
 
   // Build neuron tree once using multiple root directions
@@ -165,14 +239,54 @@ export default function HeroNeuron() {
 
   /* ─── Canvas Setup & Animation Loop ────────────────────────── */
 
+  /* ─── Mouse tracking for stem hover detection ──────────── */
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Only add wheel listener when in focus mode
-    if (focusMode) {
-      canvas.addEventListener("wheel", handleWheel, { passive: false });
+    function onMove(e: MouseEvent) {
+      const rect = canvas!.getBoundingClientRect();
+      mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+      // Check if hovering over any stem endpoint
+      const positions = stemPositionsRef.current;
+      let found: number | null = null;
+      for (let i = 0; i < positions.length; i++) {
+        const dx = mouseRef.current.x - positions[i].x;
+        const dy = mouseRef.current.y - positions[i].y;
+        if (dx * dx + dy * dy < 30 * 30) {
+          found = i;
+          break;
+        }
+      }
+      setHoveredStem(found);
     }
+
+    function onClick() {
+      if (hoveredStem !== null) {
+        setActiveStem(hoveredStem === activeStem ? null : hoveredStem);
+      } else if (activeStem !== null) {
+        setActiveStem(null);
+      }
+    }
+
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("click", onClick);
+    return () => {
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("click", onClick);
+    };
+  }, [hoveredStem, activeStem, setActiveStem]);
+
+  /* ─── Canvas Setup & Animation Loop ────────────────────────── */
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Invisible scroll-interceptor — always active
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
 
     const ctx = canvas.getContext("2d")!;
     let width = 0;
@@ -506,24 +620,74 @@ export default function HeroNeuron() {
       // Render synapse particles
       renderParticles(time, focalLength, cx, cy, rotY, rotXAngle, cameraZ, warpFactor);
 
-      // Zoom indicator (only in focus mode)
-      if (focusMode && currentZoom > 0.01) {
-        const indicatorText = `DEPTH: ${Math.round(currentZoom * 100)}%`;
-        ctx.font = "12px monospace";
-        ctx.fillStyle = `rgba(0, 220, 255, ${0.4 + currentZoom * 0.4})`;
-        ctx.textAlign = "right";
-        ctx.fillText(indicatorText, width - 20, height - 20);
+      // ── Synaptic Stems (after warp completes) ──────────────
+      if (hasReachedNucleus) {
+        const stemTime = time;
+        const positions: { x: number; y: number }[] = [];
 
-        if (currentZoom < 0.8 && !isWarping) {
-          ctx.font = "11px monospace";
-          ctx.fillStyle = "rgba(0, 220, 255, 0.3)";
-          ctx.textAlign = "center";
-          ctx.fillText(
-            "Scroll to dive into the nucleus...",
-            cx,
-            height - 20
-          );
-        }
+        SYNAPTIC_STEMS.forEach((stem, idx) => {
+          const wobble = Math.sin(stemTime * 1.5 + stem.angle * 3) * 4;
+          const endX = cx + Math.cos(stem.angle) * (stem.length + wobble);
+          const endY = cy + Math.sin(stem.angle) * (stem.length + wobble);
+
+          // Dendrite branch line
+          const isHot = hoveredStem === idx || activeStem === idx;
+          const baseAlpha = isHot ? 0.95 : 0.55 + 0.15 * Math.sin(stemTime * 2 + idx);
+
+          // Main stem line
+          const grad = ctx.createLinearGradient(cx, cy, endX, endY);
+          grad.addColorStop(0, `rgba(0, 220, 255, ${baseAlpha * 0.3})`);
+          grad.addColorStop(1, `rgba(0, 255, 200, ${baseAlpha})`);
+
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          // Slight organic curve
+          const cpx = (cx + endX) / 2 + Math.sin(stemTime + idx * 1.3) * 12;
+          const cpy = (cy + endY) / 2 + Math.cos(stemTime + idx * 0.9) * 12;
+          ctx.quadraticCurveTo(cpx, cpy, endX, endY);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = isHot ? 3 : 1.8;
+          ctx.lineCap = "round";
+          ctx.stroke();
+
+          // Terminal bulb (synapse)
+          const bulbRadius = isHot ? 10 : 6;
+          const bulbGlow = ctx.createRadialGradient(endX, endY, 0, endX, endY, bulbRadius * 2.5);
+          bulbGlow.addColorStop(0, `rgba(0, 255, 220, ${isHot ? 0.9 : 0.6})`);
+          bulbGlow.addColorStop(0.5, `rgba(0, 200, 255, ${isHot ? 0.35 : 0.15})`);
+          bulbGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.beginPath();
+          ctx.arc(endX, endY, bulbRadius * 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = bulbGlow;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(endX, endY, bulbRadius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(180, 255, 240, ${isHot ? 0.95 : 0.7})`;
+          ctx.fill();
+
+          // Small branching dendrites off the stem
+          for (let b = 0; b < 3; b++) {
+            const t = 0.35 + b * 0.2;
+            const branchStartX = cx + (endX - cx) * t + Math.sin(stemTime + b) * 4;
+            const branchStartY = cy + (endY - cy) * t + Math.cos(stemTime + b) * 4;
+            const branchAngle = stem.angle + (b - 1) * 0.6;
+            const branchLen = 18 + Math.sin(stemTime * 2 + b) * 4;
+            const branchEndX = branchStartX + Math.cos(branchAngle) * branchLen;
+            const branchEndY = branchStartY + Math.sin(branchAngle) * branchLen;
+
+            ctx.beginPath();
+            ctx.moveTo(branchStartX, branchStartY);
+            ctx.lineTo(branchEndX, branchEndY);
+            ctx.strokeStyle = `rgba(0, 220, 255, ${baseAlpha * 0.35})`;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+
+          positions.push({ x: endX, y: endY });
+        });
+
+        stemPositionsRef.current = positions;
       }
 
       // White flash overlay during peak warp
@@ -541,89 +705,57 @@ export default function HeroNeuron() {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       window.removeEventListener("resize", resize);
-      if (focusMode) {
-        canvas.removeEventListener("wheel", handleWheel);
-      }
+      canvas.removeEventListener("wheel", handleWheel);
     };
-  }, [trees, particles, zoom, handleWheel, focusMode, isWarping]);
+  }, [trees, particles, zoom, handleWheel, isWarping, hasReachedNucleus, hoveredStem, activeStem]);
 
   return (
     <div className="relative w-full h-full">
       <canvas
         ref={canvasRef}
-        className={`w-full h-full ${
-          focusMode
-            ? "cursor-grab active:cursor-grabbing"
-            : "cursor-default"
-        }`}
+        className="w-full h-full cursor-default"
         style={{ touchAction: "none" }}
       />
 
-      {/* Focus Mode Toggle Button */}
-      <div className="absolute top-4 right-4 z-20">
-        <Button
-          variant={focusMode ? "default" : "outline"}
-          size="sm"
-          onClick={toggleFocusMode}
-          className={`gap-2 font-mono text-xs transition-all duration-300 ${
-            focusMode
-              ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 shadow-[0_0_20px_rgba(0,220,255,0.15)]"
-              : "border-zinc-700 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500/30"
-          }`}
-        >
-          {focusMode ? (
-            <>
-              <X className="w-3.5 h-3.5" />
-              Exit Focus
-            </>
-          ) : (
-            <>
-              <Crosshair className="w-3.5 h-3.5" />
-              Explore Neuron
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* Focus mode hint overlay */}
-      {focusMode && zoom < 0.05 && !isWarping && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-pulse z-20">
-          <span className="text-xs text-cyan-400/60 font-mono tracking-widest uppercase">
-            Scroll to explore
-          </span>
-          <div className="w-5 h-8 border-2 border-cyan-500/30 rounded-full flex justify-center pt-1">
-            <div className="w-1 h-2 bg-cyan-400/60 rounded-full animate-bounce" />
-          </div>
-        </div>
-      )}
-
-      {/* Focus mode active indicator */}
-      {focusMode && !isWarping && !hasReachedNucleus && (
-        <div className="absolute top-4 left-4 z-20">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-black/60 backdrop-blur-sm text-cyan-400 text-xs font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            Focus Mode Active
-          </div>
-        </div>
-      )}
-
-      {/* Warp in-progress overlay */}
-      {isWarping && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <div className="text-center animate-pulse">
-            <p className="text-cyan-300 font-mono text-sm tracking-[0.3em] uppercase">
-              Entering Nucleus
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Fact carousel (shown after warp completes) */}
+      {/* Synaptic Fact Reveal — Framer Motion */}
       <AnimatePresence>
-        {hasReachedNucleus && (
-          <FactCarousel onClose={resetWarp} />
+        {hasReachedNucleus && activeStem !== null && (
+          <motion.div
+            key={activeStem}
+            initial={{ opacity: 0, y: 20, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 pointer-events-auto max-w-sm w-full"
+          >
+            <div className="bg-zinc-900/90 backdrop-blur-xl border border-cyan-500/20 rounded-2xl p-5 shadow-[0_0_40px_rgba(0,220,255,0.08)]">
+              <h3 className="text-cyan-300 font-semibold text-sm tracking-wide mb-1">
+                {SYNAPTIC_STEMS[activeStem].fact.title}
+              </h3>
+              <p className="text-zinc-400 text-xs leading-relaxed mb-3">
+                {SYNAPTIC_STEMS[activeStem].fact.body}
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-cyan-400 font-mono text-lg font-bold">
+                  {SYNAPTIC_STEMS[activeStem].fact.stat}
+                </span>
+                <span className="text-zinc-500 text-[10px] uppercase tracking-widest">
+                  {SYNAPTIC_STEMS[activeStem].fact.statLabel}
+                </span>
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Scroll hint — shown before user starts scrolling */}
+      {zoom < 0.03 && !isWarping && !hasReachedNucleus && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20 pointer-events-none">
+          <div className="w-5 h-8 border-2 border-cyan-500/20 rounded-full flex justify-center pt-1">
+            <div className="w-1 h-2 bg-cyan-400/40 rounded-full animate-bounce" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,40 +1,33 @@
 /**
- * useNeuronZoom — Focus-mode zoom controller
+ * useNeuronZoom — Invisible scroll-interceptor zoom controller
  *
- * Manages zoom state for the 3D neuron canvas without hijacking
- * page scroll. Zoom is only active when "Focus Mode" is explicitly
- * toggled on, which also locks page scroll.
+ * Manages zoom state for the 3D neuron canvas. Zoom activates
+ * when the neuron center is in the viewport, intercepting scroll
+ * seamlessly. No buttons needed.
  *
  * @module hooks/use-neuron-zoom
  */
 
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { clamp } from "@/lib/utils";
 
 interface UseNeuronZoomOptions {
-  /** Zoom value (0–1) at which the warp-speed animation triggers */
   warpThreshold?: number;
 }
 
 interface UseNeuronZoomReturn {
-  /** Current zoom level, 0–1 */
   zoom: number;
-  /** Whether focus mode (scroll-zoom) is active */
-  focusMode: boolean;
-  /** Whether the warp animation is currently playing */
   isWarping: boolean;
-  /** Whether the user has completed the warp & reached the nucleus */
   hasReachedNucleus: boolean;
-  /** Toggle focus mode on/off */
-  toggleFocusMode: () => void;
-  /** Exit focus mode and reset zoom */
-  exitFocusMode: () => void;
-  /** The wheel handler to attach to the canvas */
+  /** Attach to canvas wheel event */
   handleWheel: (e: WheelEvent) => void;
-  /** Reset warp state (e.g. after closing fact carousel) */
+  /** Reset everything after fact viewing */
   resetWarp: () => void;
+  /** Selected stem index (0-4), or null */
+  activeStem: number | null;
+  setActiveStem: (i: number | null) => void;
 }
 
 export function useNeuronZoom(
@@ -43,30 +36,15 @@ export function useNeuronZoom(
   const { warpThreshold = 0.85 } = opts;
 
   const [zoom, setZoom] = useState(0);
-  const [focusMode, setFocusMode] = useState(false);
   const [isWarping, setIsWarping] = useState(false);
   const [hasReachedNucleus, setHasReachedNucleus] = useState(false);
+  const [activeStem, setActiveStem] = useState<number | null>(null);
 
   const warpTriggered = useRef(false);
 
-  /* ─── Lock / Unlock Page Scroll ──────────────────────────── */
-
-  useEffect(() => {
-    if (focusMode) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [focusMode]);
-
-  /* ─── Wheel Handler (only works when focusMode is on) ───── */
-
   const handleWheel = useCallback(
     (e: WheelEvent) => {
-      if (!focusMode || isWarping) return;
+      if (isWarping || hasReachedNucleus) return;
 
       e.preventDefault();
       const delta = e.deltaY * -0.003;
@@ -76,7 +54,6 @@ export function useNeuronZoom(
         if (next >= warpThreshold && !warpTriggered.current) {
           warpTriggered.current = true;
           setIsWarping(true);
-          // After warp animation completes, mark nucleus reached
           setTimeout(() => {
             setIsWarping(false);
             setHasReachedNucleus(true);
@@ -86,48 +63,24 @@ export function useNeuronZoom(
         return next;
       });
     },
-    [focusMode, isWarping, warpThreshold]
+    [isWarping, hasReachedNucleus, warpThreshold]
   );
-
-  /* ─── Toggle ────────────────────────────────────────────── */
-
-  const toggleFocusMode = useCallback(() => {
-    setFocusMode((prev) => {
-      if (prev) {
-        // Exiting focus mode — reset zoom
-        setZoom(0);
-        warpTriggered.current = false;
-        setIsWarping(false);
-        setHasReachedNucleus(false);
-      }
-      return !prev;
-    });
-  }, []);
-
-  const exitFocusMode = useCallback(() => {
-    setFocusMode(false);
-    setZoom(0);
-    warpTriggered.current = false;
-    setIsWarping(false);
-    setHasReachedNucleus(false);
-  }, []);
 
   const resetWarp = useCallback(() => {
     setHasReachedNucleus(false);
     setIsWarping(false);
+    setActiveStem(null);
     warpTriggered.current = false;
     setZoom(0);
-    setFocusMode(false);
   }, []);
 
   return {
     zoom,
-    focusMode,
     isWarping,
     hasReachedNucleus,
-    toggleFocusMode,
-    exitFocusMode,
     handleWheel,
     resetWarp,
+    activeStem,
+    setActiveStem,
   };
 }

@@ -10,7 +10,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -20,6 +20,7 @@ import {
   Microscope,
   Zap,
   Shield,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 // Dynamic import to avoid SSR issues with canvas
 const HeroNeuron = dynamic(
@@ -61,6 +69,8 @@ const FEATURES = [
 /* ─── Page Component ──────────────────────────────────────────────────── */
 
 export default function HomePage() {
+  const [learnOpen, setLearnOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-black text-zinc-100">
       {/* Navigation */}
@@ -75,21 +85,82 @@ export default function HomePage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/detector">
-              <Button variant="ghost" size="sm" className="gap-1.5">
-                <Activity className="w-4 h-4" />
-                Detector
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setLearnOpen(true)}
+            >
+              <BookOpen className="w-4 h-4" />
+              Learn
+            </Button>
             <Link href="/detector">
               <Button size="sm" className="gap-1.5">
-                Start Test
-                <ArrowRight className="w-3.5 h-3.5" />
+                <Activity className="w-4 h-4" />
+                Detector
               </Button>
             </Link>
           </div>
         </div>
       </nav>
+
+      {/* Learn Sheet */}
+      <Sheet open={learnOpen} onOpenChange={setLearnOpen}>
+        <SheetContent side="right" className="w-[420px] sm:w-[480px] bg-zinc-950 border-zinc-800 overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="text-cyan-300 flex items-center gap-2">
+              <BookOpen className="w-5 h-5" />
+              Understanding Parkinson&apos;s
+            </SheetTitle>
+            <SheetDescription>
+              Key facts about early detection and motor biomarkers.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-6 text-sm text-zinc-400 leading-relaxed">
+            <div>
+              <h4 className="text-zinc-200 font-semibold mb-1">What is Parkinson&apos;s Disease?</h4>
+              <p>
+                A progressive neurodegenerative disorder caused by the loss of
+                dopamine-producing neurons in the substantia nigra. It affects
+                over 10 million people worldwide.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-zinc-200 font-semibold mb-1">Why Spiral &amp; Wave Tests?</h4>
+              <p>
+                The Archimedes spiral and sinusoidal wave tests capture fine
+                motor control anomalies — tremor, bradykinesia, and
+                micrographia — that are among the earliest detectable signs of PD.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-zinc-200 font-semibold mb-1">How Detection Works</h4>
+              <p>
+                We capture (x, y, t) coordinates at high resolution while you
+                draw. The analysis engine computes radial deviation, speed
+                variance, and tremor frequency to produce a screening score.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-zinc-200 font-semibold mb-1">Accuracy &amp; Limitations</h4>
+              <p>
+                ML models trained on clinically-validated datasets achieve 92%+
+                sensitivity, but this tool is for educational screening only
+                and is <em>not</em> a medical diagnostic device.
+              </p>
+            </div>
+            <div className="pt-4 border-t border-zinc-800">
+              <Link href="/detector">
+                <Button size="sm" className="w-full gap-2" onClick={() => setLearnOpen(false)}>
+                  <Activity className="w-4 h-4" />
+                  Try the Detector
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Hero Section */}
       <section className="relative h-screen w-full overflow-hidden">
@@ -127,12 +198,15 @@ export default function HomePage() {
                   Begin Screening
                 </Button>
               </Link>
-              <Link href="/learn">
-                <Button variant="outline" size="lg" className="gap-2 text-base">
-                  <Microscope className="w-5 h-5" />
-                  Learn More
-                </Button>
-              </Link>
+              <Button
+                variant="outline"
+                size="lg"
+                className="gap-2 text-base"
+                onClick={() => setLearnOpen(true)}
+              >
+                <BookOpen className="w-5 h-5" />
+                Learn More
+              </Button>
             </div>
           </div>
         </div>
