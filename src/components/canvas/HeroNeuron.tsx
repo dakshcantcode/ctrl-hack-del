@@ -241,7 +241,7 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
     ];
 
     return directions.map((d) =>
-      buildNeuronTree({ x: 0, y: 0, z: 0 }, d, 120, 0, 7)
+      buildNeuronTree({ x: 0, y: 0, z: 0 }, d, 170, 0, 7)
     );
   }, []);
 
@@ -667,7 +667,7 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
 
     let currentZoom = 0;
     let postGlowExpand = 1;   // eased expansion after glow
-    let cameraZPos = -500;    // first-person camera Z position
+    let cameraZPos = -420;    // first-person camera Z position (closer = tree fills viewport)
     let parallaxX = 0;        // smoothed mouse parallax yaw
     let parallaxY = 0;        // smoothed mouse parallax pitch
     let autoTriggered = false; // one-shot proximity trigger after warp
@@ -725,7 +725,7 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
       } else if (hasReachedNucleusRef.current) {
         targetCamZ = 0;     // settle at the nucleus center
       } else {
-        targetCamZ = -500 + currentZoom * 588; // zoom 0→0.85 maps -500→0
+        targetCamZ = -420 + currentZoom * 494; // zoom 0→0.85 maps -420→0
       }
       const camLerp = isWarpingRef.current ? 0.035 : 0.06;
       cameraZPos = lerp(cameraZPos, targetCamZ, camLerp);
@@ -740,8 +740,8 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
         // Inside nucleus — mouse parallax replaces auto-rotation
         const mx = width > 0 ? (mouseRef.current.x - cx) / (width * 0.5) : 0;
         const my = height > 0 ? (mouseRef.current.y - cy) / (height * 0.5) : 0;
-        parallaxX = lerp(parallaxX, mx * 0.55, 0.04);
-        parallaxY = lerp(parallaxY, my * 0.4, 0.04);
+        parallaxX = lerp(parallaxX, mx * 0.85, 0.06);
+        parallaxY = lerp(parallaxY, my * 0.65, 0.06);
         rotY = parallaxX;
         rotXAngle = parallaxY;
       } else {
@@ -826,8 +826,11 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
           ctx.lineCap = "round";
           ctx.stroke();
 
-          // Terminal bulb — glows intensely when camera is physically near
-          const bulbRadius = 5 + glowIntensity * 8;
+          // Terminal bulb — glows + pulses when camera is physically near
+          const proximityPulse = proximity > 0.25
+            ? 1 + 0.3 * Math.sin(stemTime * 4 + idx * 1.5)
+            : 1;
+          const bulbRadius = (5 + glowIntensity * 8) * proximityPulse;
           const glowSpread = bulbRadius * (2.5 + proximity * 2);
           const bulbGlow = ctx.createRadialGradient(stemX, stemY, 0, stemX, stemY, glowSpread);
           bulbGlow.addColorStop(0, `rgba(0, 255, 220, ${0.5 + glowIntensity * 0.5})`);
