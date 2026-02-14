@@ -28,6 +28,9 @@ interface FactOverlayProps {
   positions: { x: number; y: number }[];
   /** Fact data for each stem */
   facts: FactData[];
+  /** Keep fact visible while hovering over the tooltip itself */
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export default function FactOverlay({
@@ -35,6 +38,8 @@ export default function FactOverlay({
   visible,
   positions,
   facts,
+  onMouseEnter,
+  onMouseLeave,
 }: FactOverlayProps) {
   const isActive = visible && activeStemId !== null;
   const pos = isActive ? positions[activeStemId] : null;
@@ -48,13 +53,15 @@ export default function FactOverlay({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 12 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
+          transition={{ type: "spring", stiffness: 260, damping: 22, mass: 0.8 }}
           className="absolute z-30 pointer-events-auto"
           style={{
             left: pos.x,
             top: pos.y,
             transform: "translate(-50%, -110%)",
           }}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
         >
           <div className="relative max-w-[260px] w-max px-4 py-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
             {/* Caret */}

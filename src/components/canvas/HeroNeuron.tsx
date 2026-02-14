@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Living Neuron 3D Canvas Engine
+ * NeuroSketch — Living Neuron 3D Canvas Engine
  *
  * Recursive 3D projected neuron with invisible scroll-interceptor
  * zoom, immersive warp-speed dive, and synaptic fact-stems that
@@ -188,9 +188,11 @@ export default function HeroNeuron() {
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const stemPositionsRef = useRef<{ x: number; y: number }[]>([]);
   const hoverExitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   // Screen-space stem positions exposed to React for the overlay
   const [stemPositions, setStemPositions] = useState<{ x: number; y: number }[]>([]);
+  const [hoveredStemId, setHoveredStemId] = useState<number | null>(null);
 
   const {
     zoom,
@@ -256,14 +258,14 @@ export default function HeroNeuron() {
 
   /* ─── Canvas Setup & Animation Loop ────────────────────────── */
 
-  /* ─── Mouse tracking for stem hover detection ──────────── */
+  /* ─── Hover detection on separate overlay (decoupled from 3D canvas) ── */
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const overlay = overlayRef.current;
+    if (!overlay) return;
 
     function onMove(e: MouseEvent) {
-      const rect = canvas!.getBoundingClientRect();
+      const rect = overlay!.getBoundingClientRect();
       mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
       const positions = stemPositionsRef.current;
@@ -271,47 +273,49 @@ export default function HeroNeuron() {
       for (let i = 0; i < positions.length; i++) {
         const dx = mouseRef.current.x - positions[i].x;
         const dy = mouseRef.current.y - positions[i].y;
-        if (dx * dx + dy * dy < 30 * 30) {
+        if (dx * dx + dy * dy < 35 * 35) {
           found = i;
           break;
         }
       }
 
-      // Debounced hover exit — 120ms grace period prevents flicker
+      // Debounced hover exit — 150ms grace period prevents flicker
       if (found !== null) {
         if (hoverExitTimer.current) {
           clearTimeout(hoverExitTimer.current);
           hoverExitTimer.current = null;
         }
         hoveredStemRef.current = found;
+        setHoveredStemId(found);
+        setActiveStem(found);
       } else if (hoveredStemRef.current !== null) {
         if (!hoverExitTimer.current) {
           hoverExitTimer.current = setTimeout(() => {
             hoveredStemRef.current = null;
+            setHoveredStemId(null);
+            setActiveStem(null);
             hoverExitTimer.current = null;
-          }, 120);
+          }, 150);
         }
       }
     }
 
-    function onClick() {
-      const hovered = hoveredStemRef.current;
-      const active = activeStemRef.current;
-      if (hovered !== null) {
-        const next = hovered === active ? null : hovered;
-        activeStemRef.current = next;
-        setActiveStem(next);
-      } else if (active !== null) {
-        activeStemRef.current = null;
-        setActiveStem(null);
+    function onLeave() {
+      if (!hoverExitTimer.current) {
+        hoverExitTimer.current = setTimeout(() => {
+          hoveredStemRef.current = null;
+          setHoveredStemId(null);
+          setActiveStem(null);
+          hoverExitTimer.current = null;
+        }, 150);
       }
     }
 
-    canvas.addEventListener("mousemove", onMove);
-    canvas.addEventListener("click", onClick);
+    overlay.addEventListener("mousemove", onMove);
+    overlay.addEventListener("mouseleave", onLeave);
     return () => {
-      canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("click", onClick);
+      overlay.removeEventListener("mousemove", onMove);
+      overlay.removeEventListener("mouseleave", onLeave);
       if (hoverExitTimer.current) clearTimeout(hoverExitTimer.current);
     };
   }, [setActiveStem]);
@@ -763,12 +767,37 @@ export default function HeroNeuron() {
         style={{ touchAction: "none" }}
       />
 
+      {/* Transparent hover-detection overlay — decoupled from 3D physics */}
+      {hasReachedNucleus && (
+        <div
+          ref={overlayRef}
+          className="absolute inset-0 z-20"
+          style={{ pointerEvents: "auto" }}
+        />
+      )}
+
       {/* Synaptic Fact Overlay — glassmorphic tooltip at node position */}
       <FactOverlay
-        activeStemId={activeStem}
+        activeStemId={hoveredStemId}
         visible={hasReachedNucleus}
         positions={stemPositions}
         facts={SYNAPTIC_STEMS.map((s) => s.fact)}
+        onMouseEnter={() => {
+          if (hoverExitTimer.current) {
+            clearTimeout(hoverExitTimer.current);
+            hoverExitTimer.current = null;
+          }
+        }}
+        onMouseLeave={() => {
+          if (!hoverExitTimer.current) {
+            hoverExitTimer.current = setTimeout(() => {
+              hoveredStemRef.current = null;
+              setHoveredStemId(null);
+              setActiveStem(null);
+              hoverExitTimer.current = null;
+            }, 150);
+          }
+        }}
       />
 
       {/* Scroll hint — shown before user starts scrolling */}
