@@ -45,7 +45,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SpiralTest, { type SpiralTestRef, type SpiralAnalysis } from "@/components/tests/spiral-test";
 import WaveTest, { type WaveCanvasRef, type WaveAnalysis } from "@/components/tests/wave-test";
-import SpiralUpload from "@/components/canvas/SpiralUpload";
 
 /* ─── Risk Classification ─────────────────────────────────────────────── */
 
@@ -149,6 +148,8 @@ export default function DetectorPage() {
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [isPredicting, setIsPredicting] = useState(false);
   const [prediction, setPrediction] = useState<{ label: string; confidence: number } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSpiralUpdate = useCallback((a: SpiralAnalysis) => {
     setAnalysis({
@@ -192,7 +193,11 @@ export default function DetectorPage() {
     try {
       let fd: FormData | null = null;
 
-      if (activeTest === "spiral" && spiralRef.current) {
+      if (uploadedFile) {
+        fd = new FormData();
+        fd.append("image", uploadedFile, uploadedFile.name);
+        fd.append("test_type", activeTest === "wave" ? "wave" : "spiral");
+      } else if (activeTest === "spiral" && spiralRef.current) {
         fd = await spiralRef.current.getFormData();
       } else if (activeTest === "wave" && waveRef.current) {
         const blob = await waveRef.current.getImageBlob();
@@ -225,7 +230,7 @@ export default function DetectorPage() {
     } finally {
       setIsPredicting(false);
     }
-  }, [activeTest]);
+  }, [activeTest, uploadedFile]);
 
   const risk = analysis ? classifyRisk(analysis.tremorScore) : null;
 
@@ -280,7 +285,7 @@ export default function DetectorPage() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <Tabs value={activeTest} onValueChange={(v) => { if (v === "upload" && activeTest === "wave") return; setActiveTest(v); setAnalysis(null); setPrediction(null); }}>
+                  <Tabs value={activeTest} onValueChange={(v) => { setActiveTest(v); setAnalysis(null); setPrediction(null); setUploadedFile(null); }}>
                     <TabsList>
                       <TabsTrigger value="spiral" className="gap-1.5">
                         <Target className="w-3.5 h-3.5" />
@@ -289,10 +294,6 @@ export default function DetectorPage() {
                       <TabsTrigger value="wave" className="gap-1.5">
                         <Activity className="w-3.5 h-3.5" />
                         Wave Analysis
-                      </TabsTrigger>
-                      <TabsTrigger value="upload" className="gap-1.5" disabled={activeTest === "wave"}>
-                        <Upload className="w-3.5 h-3.5" />
-                        Upload
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -308,7 +309,7 @@ export default function DetectorPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={handleReset}
+                        onClick={() => { handleReset(); setUploadedFile(null); }}
                         className="gap-1.5"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -320,14 +321,22 @@ export default function DetectorPage() {
                 <CardDescription>
                   {activeTest === "spiral"
                     ? "Trace the Archimedes spiral guide. Stay as close to the path as possible."
-                    : activeTest === "wave"
-                    ? "Follow the sinusoidal wave guide from left to right."
-                    : "Upload a photo of a hand-drawn spiral for ML-powered analysis."}
+                    : "Follow the sinusoidal wave guide from left to right."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) setUploadedFile(e.target.files[0]);
+                  }}
+                />
+
                 {activeTest === "spiral" && (
-                  <div className="flex justify-center">
+                  <div className="flex flex-col items-center gap-3">
                     <SpiralTest
                       ref={spiralRef}
                       width={500}
@@ -337,10 +346,26 @@ export default function DetectorPage() {
                       onDrawingStart={() => setIsDrawing(true)}
                       onDrawingEnd={() => setIsDrawing(false)}
                     />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Upload Spiral
+                      </Button>
+                      {uploadedFile && (
+                        <span className="text-xs text-cyan-400 truncate max-w-[160px]">
+                          {uploadedFile.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
                 {activeTest === "wave" && (
-                  <div className="flex justify-center">
+                  <div className="flex flex-col items-center gap-3">
                     <WaveTest
                       ref={waveRef}
                       width={500}
@@ -349,17 +374,27 @@ export default function DetectorPage() {
                       onDrawingStart={() => setIsDrawing(true)}
                       onDrawingEnd={() => setIsDrawing(false)}
                     />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Upload Wave
+                      </Button>
+                      {uploadedFile && (
+                        <span className="text-xs text-cyan-400 truncate max-w-[160px]">
+                          {uploadedFile.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-                {activeTest === "upload" && (
-                  <SpiralUpload
-                    onUploadStart={() => {}}
-                    onUploadComplete={() => {}}
-                  />
                 )}
 
                 {/* Predict Button */}
-                {analysis && activeTest !== "upload" && (
+                {(analysis || uploadedFile) && (
                   <div className="mt-4 flex justify-end">
                     <Button
                       size="sm"
