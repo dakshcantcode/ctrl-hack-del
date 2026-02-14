@@ -1,0 +1,8 @@
+frontend/node_modules
+*.png
+*.pyc
+*.zip
+*.pdf
+*.h5
+*.replit
+replit.nix
