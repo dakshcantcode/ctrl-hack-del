@@ -106,7 +106,7 @@ export default function HomePage() {
         {!cinematicActive && (
           <motion.nav
             key="nav"
-            initial={{ opacity: 1 }}
+            initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -148,7 +148,7 @@ export default function HomePage() {
         {!cinematicActive && learnOpen && (
           <motion.div
             key="learn-popover"
-            initial={{ opacity: 1 }}
+            initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -204,7 +204,7 @@ export default function HomePage() {
           {!cinematicActive && (
             <motion.div
               key="hero-text"
-              initial={{ opacity: 1 }}
+              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -258,7 +258,7 @@ export default function HomePage() {
           {!cinematicActive && (
             <motion.div
               key="hero-gradient"
-              initial={{ opacity: 1 }}
+              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
