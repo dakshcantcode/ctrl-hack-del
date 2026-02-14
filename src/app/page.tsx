@@ -1,100 +1,214 @@
-import Image from "next/image";
+/**
+ * NeuroDetect — Landing Page
+ *
+ * Hero section featuring the Living Neuron 3D canvas engine with
+ * scroll-to-zoom interaction. Includes navigation to the detector
+ * dashboard and feature highlights.
+ *
+ * @module app/page
+ */
 
-export default function Home() {
+"use client";
+
+import React from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import {
+  Brain,
+  Activity,
+  ArrowRight,
+  Microscope,
+  Zap,
+  Shield,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+// Dynamic import to avoid SSR issues with canvas
+const HeroNeuron = dynamic(
+  () => import("@/components/canvas/HeroNeuron"),
+  { ssr: false }
+);
+
+/* ─── Feature Data ─────────────────────────────────────────────────────── */
+
+const FEATURES = [
+  {
+    icon: Microscope,
+    title: "Spiral Analysis",
+    description:
+      "Draw an Archimedes spiral and get instant motor function analysis using validated clinical metrics.",
+  },
+  {
+    icon: Zap,
+    title: "Real-Time Detection",
+    description:
+      "Live computation of radial deviation, speed variance, and tremor scoring as you draw.",
+  },
+  {
+    icon: Shield,
+    title: "Privacy First",
+    description:
+      "All analysis runs locally in your browser. No data is transmitted or stored on any server.",
+  },
+];
+
+/* ─── Page Component ──────────────────────────────────────────────────── */
+
+export default function HomePage() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-black text-zinc-100">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-900/50 bg-black/60 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-cyan-500/10">
+              <Brain className="w-5 h-5 text-cyan-400" />
+            </div>
+            <span className="font-bold text-lg tracking-tight">
+              NeuroDetect
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/detector">
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                <Activity className="w-4 h-4" />
+                Detector
+              </Button>
+            </Link>
+            <Link href="/detector">
+              <Button size="sm" className="gap-1.5">
+                Start Test
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative h-screen w-full overflow-hidden">
+        {/* 3D Neuron Canvas Background */}
+        <div className="absolute inset-0">
+          <HeroNeuron />
+        </div>
+
+        {/* Hero Text Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-center space-y-6 px-4 pointer-events-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-400 text-xs font-mono animate-fade-in">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              Early Detection Research Tool
+            </div>
+
+            <h1 className="text-5xl sm:text-7xl font-bold tracking-tight animate-slide-up">
+              <span className="bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+                Neuro
+              </span>
+              <span className="bg-gradient-to-b from-cyan-300 to-cyan-600 bg-clip-text text-transparent">
+                Detect
+              </span>
+            </h1>
+
+            <p className="text-zinc-400 text-lg sm:text-xl max-w-xl mx-auto animate-slide-up leading-relaxed">
+              Screen for early Parkinson&apos;s indicators using the
+              Archimedes spiral test — powered by real-time motor analysis.
+            </p>
+
+            <div className="flex items-center justify-center gap-4 animate-slide-up">
+              <Link href="/detector">
+                <Button size="lg" className="gap-2 text-base">
+                  <Activity className="w-5 h-5" />
+                  Begin Screening
+                </Button>
+              </Link>
+              <Button variant="outline" size="lg" className="gap-2 text-base">
+                <Microscope className="w-5 h-5" />
+                Learn More
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom gradient fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent" />
+      </section>
+
+      {/* Features Section */}
+      <section className="relative z-10 py-24 bg-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+              Clinical-Grade Screening,{" "}
+              <span className="text-cyan-400">Instantly</span>
+            </h2>
+            <p className="text-zinc-500 max-w-2xl mx-auto">
+              NeuroDetect brings validated neurological screening methods to
+              your browser with zero data collection and real-time results.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {FEATURES.map((feature) => (
+              <Card
+                key={feature.title}
+                className="group hover:border-cyan-500/20 transition-colors duration-300"
+              >
+                <CardHeader>
+                  <div className="p-3 rounded-xl bg-cyan-500/10 w-fit mb-3 group-hover:bg-cyan-500/15 transition-colors">
+                    <feature.icon className="w-6 h-6 text-cyan-400" />
+                  </div>
+                  <CardTitle className="text-xl">
+                    {feature.title}
+                  </CardTitle>
+                  <CardDescription className="leading-relaxed">
+                    {feature.description}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="relative z-10 py-24 bg-gradient-to-t from-zinc-950 to-black border-t border-zinc-900/50">
+        <div className="max-w-3xl mx-auto px-4 text-center space-y-8">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            Ready to test?
+          </h2>
+          <p className="text-zinc-400 text-lg leading-relaxed">
+            The spiral test takes less than 30 seconds. All processing
+            happens locally — your data never leaves your device.
+          </p>
+          <Link href="/detector">
+            <Button size="lg" className="gap-2 text-base">
+              Start the Spiral Test
+              <ArrowRight className="w-5 h-5" />
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-900 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Brain className="w-4 h-4 text-cyan-500/50" />
+            <span className="text-sm text-zinc-600">
+              NeuroDetect — Educational Research Tool
+            </span>
+          </div>
+          <p className="text-xs text-zinc-700">
+            Not a medical device. For screening and educational purposes
+            only.
+          </p>
+        </div>
       </footer>
     </div>
   );
