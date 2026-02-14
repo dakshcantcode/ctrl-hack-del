@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Detector Dashboard
+ * NeuroSketch — Detector Dashboard
  *
  * Dual-test diagnostic dashboard featuring Archimedes Spiral and
  * Wave Analysis tabs. Captures (x, y, t) coordinates and packages
@@ -212,7 +212,7 @@ export default function DetectorPage() {
       }
 
       if (!fd) {
-        console.warn("[NeuroDetect] No drawing data to send.");
+        console.warn("[NeuroSketch] No drawing data to send.");
         return;
       }
 
@@ -226,7 +226,7 @@ export default function DetectorPage() {
       const data = await res.json();
       setPrediction({ label: data.label, confidence: data.confidence });
     } catch (err) {
-      console.error("[NeuroDetect] Prediction failed:", err);
+      console.error("[NeuroSketch] Prediction failed:", err);
       setPrediction({ label: "Error — backend unreachable", confidence: 0 });
     } finally {
       setIsPredicting(false);
@@ -245,8 +245,8 @@ export default function DetectorPage() {
               <Brain className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">
-                NeuroDetect
+              <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">
+                NeuroSketch
               </h1>
               <p className="text-xs text-zinc-500">
                 Motor Function Analysis
@@ -553,7 +553,7 @@ export default function DetectorPage() {
             <DialogTitle>Learn More — Research &amp; Sources</DialogTitle>
             <DialogDescription className="space-y-4 pt-2">
               <p>
-                NeuroDetect implements validated clinical screening methods
+                NeuroSketch implements validated clinical screening methods
                 for Parkinson&apos;s disease. Below are key references and
                 external resources for deeper reading.
               </p>

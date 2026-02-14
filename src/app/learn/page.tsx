@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Learn More Page
+ * NeuroSketch — Learn More Page
  *
  * Educational content about Parkinson's disease, the science behind
  * the spiral test, how the ML pipeline works, and resources for
@@ -142,8 +142,8 @@ export default function LearnPage() {
               <Brain className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">
-                NeuroDetect
+              <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">
+                NeuroSketch
               </h1>
               <p className="text-xs text-zinc-500">Learn & Understand</p>
             </div>
@@ -388,7 +388,7 @@ export default function LearnPage() {
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-cyan-500/50" />
             <span className="text-sm text-zinc-600">
-              NeuroDetect — Educational Research Tool
+              NeuroSketch — Educational Research Tool
             </span>
           </div>
           <p className="text-xs text-zinc-700">

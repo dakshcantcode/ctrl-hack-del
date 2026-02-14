@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Root Layout
+ * NeuroSketch — Root Layout
  * Application shell with dark theme and custom fonts.
  *
  * @module app/layout
@@ -21,7 +21,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "NeuroDetect — Parkinson's Early Detection",
+  title: "NeuroSketch — Parkinson's Early Detection",
   description:
     "A high-fidelity screening tool for early Parkinson's detection using Archimedes spiral analysis and 3D neural visualization.",
   keywords: [

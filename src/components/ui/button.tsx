@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Shadcn Button Component
+ * NeuroSketch — Shadcn Button Component
  * Styled button primitive with variant support.
  */
 

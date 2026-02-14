@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Shadcn Dialog Component
+ * NeuroSketch — Shadcn Dialog Component
  * Modal dialog primitive built on Radix UI.
  */
 

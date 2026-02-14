@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Utility Functions
+ * NeuroSketch — Utility Functions
  * Core math and helper utilities for the Parkinson's detection pipeline.
  *
  * @module lib/utils

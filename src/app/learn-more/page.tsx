@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Learn More Page
+ * NeuroSketch — Learn More Page
  *
  * Detailed research sources, clinical references, and external links
  * for hand-drawn screening of neurodegenerative diseases.
@@ -95,7 +95,7 @@ const RESOURCES = [
     name: "Movement Disorder Society — UPDRS",
     url: "https://www.movementdisorders.org/MDS/MDS-Rating-Scales.htm",
     description:
-      "The Unified Parkinson's Disease Rating Scale (MDS-UPDRS) — the gold-standard clinical assessment framework that NeuroDetect's metrics are modeled after.",
+      "The Unified Parkinson's Disease Rating Scale (MDS-UPDRS) — the gold-standard clinical assessment framework that NeuroSketch's metrics are modeled after.",
   },
 ];
 
@@ -114,8 +114,8 @@ export default function LearnMorePage() {
             <div className="p-1.5 rounded-lg bg-cyan-500/10">
               <Brain className="w-5 h-5 text-cyan-400" />
             </div>
-            <span className="font-bold text-lg tracking-tight">
-              NeuroDetect
+            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">
+              NeuroSketch
             </span>
           </Link>
           <Link href="/">
@@ -136,10 +136,10 @@ export default function LearnMorePage() {
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
             The Science Behind{" "}
-            <span className="text-cyan-400">NeuroDetect</span>
+            <span className="text-cyan-400">NeuroSketch</span>
           </h1>
           <p className="text-zinc-400 text-lg leading-relaxed max-w-2xl">
-            NeuroDetect implements validated clinical screening methods for
+            NeuroSketch implements validated clinical screening methods for
             Parkinson&apos;s disease using hand-drawn motor tasks. Below are
             key references and resources for deeper reading.
           </p>
@@ -305,7 +305,7 @@ export default function LearnMorePage() {
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-cyan-500/50" />
             <span className="text-sm text-zinc-600">
-              NeuroDetect — Educational Research Tool
+              NeuroSketch — Educational Research Tool
             </span>
           </div>
           <p className="text-xs text-zinc-700">

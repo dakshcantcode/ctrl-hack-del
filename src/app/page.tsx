@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Landing Page
+ * NeuroSketch — Landing Page
  *
  * Hero section featuring the Living Neuron 3D canvas engine with
  * scroll-to-zoom interaction. Includes navigation to the detector
@@ -80,8 +80,8 @@ export default function HomePage() {
             <div className="p-1.5 rounded-lg bg-cyan-500/10">
               <Brain className="w-5 h-5 text-cyan-400" />
             </div>
-            <span className="font-bold text-lg tracking-tight">
-              NeuroDetect
+            <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">
+              NeuroSketch
             </span>
           </Link>
           <div className="flex items-center gap-3">
@@ -164,8 +164,8 @@ export default function HomePage() {
               <span className="bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
                 Neuro
               </span>
-              <span className="bg-gradient-to-b from-cyan-300 to-cyan-600 bg-clip-text text-transparent">
-                Detect
+              <span className="bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">
+                Sketch
               </span>
             </h1>
 
@@ -208,7 +208,7 @@ export default function HomePage() {
               <span className="text-cyan-400">Instantly</span>
             </h2>
             <p className="text-zinc-500 max-w-2xl mx-auto">
-              NeuroDetect brings validated neurological screening methods to
+              NeuroSketch brings validated neurological screening methods to
               your browser with zero data collection and real-time results.
             </p>
           </div>
@@ -261,7 +261,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-cyan-500/50" />
             <span className="text-sm text-zinc-600">
-              NeuroDetect — Educational Research Tool
+              NeuroSketch — Educational Research Tool
             </span>
           </div>
           <p className="text-xs text-zinc-700">

@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Archimedes Spiral Drawing Canvas
+ * NeuroSketch — Archimedes Spiral Drawing Canvas
  *
  * Interactive HTML5 canvas for drawing Archimedes spirals.
  * Captures stroke data (position + timestamps), computes real-time

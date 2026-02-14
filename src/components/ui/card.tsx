@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Shadcn Card Component
+ * NeuroSketch — Shadcn Card Component
  * Card layout primitive for dashboard panels.
  */
 

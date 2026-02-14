@@ -1,7 +1,7 @@
 /**
- * NeuroDetect — Shadcn Tabs
+ * NeuroSketch — Shadcn Tabs
  *
- * Built on Radix UI Tabs primitive with NeuroDetect dark styling.
+ * Built on Radix UI Tabs primitive with NeuroSketch dark styling.
  *
  * @module components/ui/tabs
  */

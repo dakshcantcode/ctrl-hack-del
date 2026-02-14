@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Spiral Image Upload Component
+ * NeuroSketch — Spiral Image Upload Component
  *
  * Drag-and-drop / click-to-upload component for spiral images.
  * Sends the image to the backend ML pipeline for TensorFlow-based

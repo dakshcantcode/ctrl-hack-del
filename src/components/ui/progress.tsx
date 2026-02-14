@@ -1,5 +1,5 @@
 /**
- * NeuroDetect — Shadcn Progress Component
+ * NeuroSketch — Shadcn Progress Component
  * Animated progress bar built on Radix UI.
  */
 
