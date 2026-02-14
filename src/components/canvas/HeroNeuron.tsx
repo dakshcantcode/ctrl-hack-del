@@ -175,7 +175,14 @@ const SPATIAL_FACTS: SpatialFact[] = [
 
 /* ─── Main Component ──────────────────────────────────────────────────── */
 
-export default function HeroNeuron() {
+/* ─── Props ────────────────────────────────────────────────────────────── */
+
+interface HeroNeuronProps {
+  /** Fires when dive state changes — drives cinematic UI fade */
+  onCinematicChange?: (state: { isWarping: boolean; hasReachedNucleus: boolean; zoom: number }) => void;
+}
+
+export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
   const timeRef = useRef<number>(0);
@@ -196,6 +203,14 @@ export default function HeroNeuron() {
     activeStem,
     setActiveStem,
   } = useNeuronZoom({ warpThreshold: 0.85 });
+
+  // Notify parent of cinematic state changes
+  const onCinematicRef = useRef(onCinematicChange);
+  onCinematicRef.current = onCinematicChange;
+
+  useEffect(() => {
+    onCinematicRef.current?.({ isWarping, hasReachedNucleus, zoom });
+  }, [isWarping, hasReachedNucleus, zoom]);
 
   /* ─── Refs for jitter-free canvas (decoupled from render) ── */
   const hoveredStemRef = useRef<number | null>(null);
@@ -725,8 +740,8 @@ export default function HeroNeuron() {
         // Inside nucleus — mouse parallax replaces auto-rotation
         const mx = width > 0 ? (mouseRef.current.x - cx) / (width * 0.5) : 0;
         const my = height > 0 ? (mouseRef.current.y - cy) / (height * 0.5) : 0;
-        parallaxX = lerp(parallaxX, mx * 0.35, 0.04);
-        parallaxY = lerp(parallaxY, my * 0.25, 0.04);
+        parallaxX = lerp(parallaxX, mx * 0.55, 0.04);
+        parallaxY = lerp(parallaxY, my * 0.4, 0.04);
         rotY = parallaxX;
         rotXAngle = parallaxY;
       } else {
