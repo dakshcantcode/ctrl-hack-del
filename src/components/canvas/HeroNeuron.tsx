@@ -188,7 +188,6 @@ export default function HeroNeuron() {
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const stemPositionsRef = useRef<{ x: number; y: number }[]>([]);
   const hoverExitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   // Screen-space stem positions exposed to React for the overlay
   const [stemPositions, setStemPositions] = useState<{ x: number; y: number }[]>([]);
@@ -258,14 +257,15 @@ export default function HeroNeuron() {
 
   /* ─── Canvas Setup & Animation Loop ────────────────────────── */
 
-  /* ─── Hover detection on separate overlay (decoupled from 3D canvas) ── */
+  /* ─── Hover detection on canvas (decoupled from 3D physics) ── */
 
   useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     function onMove(e: MouseEvent) {
-      const rect = overlay!.getBoundingClientRect();
+      if (!hasReachedNucleusRef.current) return;
+      const rect = canvas!.getBoundingClientRect();
       mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
       const positions = stemPositionsRef.current;
@@ -311,11 +311,11 @@ export default function HeroNeuron() {
       }
     }
 
-    overlay.addEventListener("mousemove", onMove);
-    overlay.addEventListener("mouseleave", onLeave);
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseleave", onLeave);
     return () => {
-      overlay.removeEventListener("mousemove", onMove);
-      overlay.removeEventListener("mouseleave", onLeave);
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mouseleave", onLeave);
       if (hoverExitTimer.current) clearTimeout(hoverExitTimer.current);
     };
   }, [setActiveStem]);
@@ -766,15 +766,6 @@ export default function HeroNeuron() {
         className="w-full h-full cursor-default"
         style={{ touchAction: "none" }}
       />
-
-      {/* Transparent hover-detection overlay — decoupled from 3D physics */}
-      {hasReachedNucleus && (
-        <div
-          ref={overlayRef}
-          className="absolute inset-0 z-20"
-          style={{ pointerEvents: "auto" }}
-        />
-      )}
 
       {/* Synaptic Fact Overlay — glassmorphic tooltip at node position */}
       <FactOverlay
