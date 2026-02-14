@@ -14,7 +14,6 @@ import React, {
   useRef,
   useEffect,
   useMemo,
-  useState,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -188,8 +187,6 @@ export default function HeroNeuron() {
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const stemPositionsRef = useRef<{ x: number; y: number }[]>([]);
 
-  const [hoveredStem, setHoveredStem] = useState<number | null>(null);
-
   const {
     zoom,
     isWarping,
@@ -198,6 +195,21 @@ export default function HeroNeuron() {
     activeStem,
     setActiveStem,
   } = useNeuronZoom({ warpThreshold: 0.85 });
+
+  /* ─── Refs for jitter-free canvas (decoupled from render) ── */
+  const hoveredStemRef = useRef<number | null>(null);
+  const activeStemRef = useRef<number | null>(null);
+  const zoomRef = useRef(0);
+  const isWarpingRef = useRef(false);
+  const hasReachedNucleusRef = useRef(false);
+  const handleWheelRef = useRef(handleWheel);
+
+  // Keep refs in sync with latest state (synchronous, no effect lag)
+  zoomRef.current = zoom;
+  isWarpingRef.current = isWarping;
+  hasReachedNucleusRef.current = hasReachedNucleus;
+  handleWheelRef.current = handleWheel;
+  activeStemRef.current = activeStem;
 
   // Build neuron tree once using multiple root directions
   const trees = useMemo(() => {
@@ -249,7 +261,6 @@ export default function HeroNeuron() {
       const rect = canvas!.getBoundingClientRect();
       mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
-      // Check if hovering over any stem endpoint
       const positions = stemPositionsRef.current;
       let found: number | null = null;
       for (let i = 0; i < positions.length; i++) {
@@ -260,13 +271,18 @@ export default function HeroNeuron() {
           break;
         }
       }
-      setHoveredStem(found);
+      hoveredStemRef.current = found;
     }
 
     function onClick() {
-      if (hoveredStem !== null) {
-        setActiveStem(hoveredStem === activeStem ? null : hoveredStem);
-      } else if (activeStem !== null) {
+      const hovered = hoveredStemRef.current;
+      const active = activeStemRef.current;
+      if (hovered !== null) {
+        const next = hovered === active ? null : hovered;
+        activeStemRef.current = next;
+        setActiveStem(next);
+      } else if (active !== null) {
+        activeStemRef.current = null;
         setActiveStem(null);
       }
     }
@@ -277,7 +293,7 @@ export default function HeroNeuron() {
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("click", onClick);
     };
-  }, [hoveredStem, activeStem, setActiveStem]);
+  }, [setActiveStem]);
 
   /* ─── Canvas Setup & Animation Loop ────────────────────────── */
 
@@ -285,8 +301,9 @@ export default function HeroNeuron() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Invisible scroll-interceptor — always active
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    // Invisible scroll-interceptor — always active (via ref for stable deps)
+    const onWheel = (e: WheelEvent) => handleWheelRef.current(e);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
 
     const ctx = canvas.getContext("2d")!;
     let width = 0;
@@ -563,10 +580,10 @@ export default function HeroNeuron() {
       const time = (timeRef.current += 0.016);
 
       // Smooth zoom interpolation
-      currentZoom = lerp(currentZoom, zoom, 0.08);
+      currentZoom = lerp(currentZoom, zoomRef.current, 0.08);
 
       // Warp progress: ramps up during isWarping, decays after
-      if (isWarping) {
+      if (isWarpingRef.current) {
         warpProgressRef.current = lerp(warpProgressRef.current, 1, 0.04);
       } else {
         warpProgressRef.current = lerp(warpProgressRef.current, 0, 0.06);
@@ -624,7 +641,7 @@ export default function HeroNeuron() {
       renderParticles(time, focalLength, cx, cy, rotY, rotXAngle, cameraZ, warpFactor);
 
       // ── Synaptic Stems (after warp completes) ──────────────
-      if (hasReachedNucleus) {
+      if (hasReachedNucleusRef.current) {
         const stemTime = time;
         const positions: { x: number; y: number }[] = [];
 
@@ -638,7 +655,7 @@ export default function HeroNeuron() {
           const endY = cy + Math.sin(stem.angle) * (scaledLen + wobble);
 
           // Dendrite branch line
-          const isHot = hoveredStem === idx || activeStem === idx;
+          const isHot = hoveredStemRef.current === idx || activeStemRef.current === idx;
           const baseAlpha = isHot ? 0.95 : 0.55 + 0.15 * Math.sin(stemTime * 2 + idx);
 
           // Main stem line
@@ -712,9 +729,9 @@ export default function HeroNeuron() {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("wheel", handleWheel);
+      canvas.removeEventListener("wheel", onWheel);
     };
-  }, [trees, particles, zoom, handleWheel, isWarping, hasReachedNucleus, hoveredStem, activeStem]);
+  }, [trees, particles]);
 
   return (
     <div className="relative w-full h-full">
