@@ -17,8 +17,8 @@ input_mode field is metadata only.
 # =============================================================================
 
 ENSEMBLE_WEIGHTS = {
-    'spiral_cnn': 0.5,
-    'wave_cnn': 0.5,
+    'spiral_cnn': 0.4,
+    'wave_cnn': 0.6,
 }
 
 RISK_TIERS = [
@@ -94,9 +94,9 @@ def ensemble_predict(spiral_cnn_prob, wave_cnn_prob, input_mode='drawn'):
     probability-based result with risk tier classification.
 
     Ensemble formula:
-        final_prob = 0.5 * spiral_cnn_prob + 0.5 * wave_cnn_prob
+        final_prob = 0.4 * spiral_cnn_prob + 0.6 * wave_cnn_prob
 
-    Both models contribute equally regardless of input mode.
+    Wave CNN is weighted higher due to stronger balanced performance.
     The input_mode parameter is recorded for metadata/logging only —
     it does NOT affect the prediction in any way.
 

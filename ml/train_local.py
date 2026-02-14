@@ -37,7 +37,8 @@ SRC_DIR = os.path.join(SCRIPT_DIR, 'src')
 # Add parent of src/ to path so "from src.xxx import yyy" works
 sys.path.insert(0, SCRIPT_DIR)
 
-DATA_ROOT = os.path.join(SRC_DIR, 'data', 'drawings')
+DATA_ROOT = os.path.join(SRC_DIR, 'data', 'drawings_augmented')
+ORIGINAL_DATA_ROOT = os.path.join(SRC_DIR, 'data', 'drawings')
 SAVE_DIR = os.path.join(SCRIPT_DIR, 'outputs')
 EXPORT_DIR = os.path.join(SCRIPT_DIR, 'exports')
 
@@ -117,7 +118,7 @@ def main():
     for drawing_type in ['spiral', 'wave']:
         PATHS[drawing_type] = {
             'train': os.path.join(DATA_ROOT, drawing_type, 'training'),
-            'test': os.path.join(DATA_ROOT, drawing_type, 'testing'),
+            'test': os.path.join(ORIGINAL_DATA_ROOT, drawing_type, 'testing'),
         }
 
     print(f'{"Type":>8} | {"Split":>8} | {"Healthy":>8} | {"Parkinson":>10} | {"Total":>6}')

@@ -28,9 +28,8 @@ def build_model(name='spiral'):
 
     Architecture:
         MobileNetV2 (pretrained, frozen) → GlobalAveragePooling2D →
-        BatchNormalization → Dense(256, relu) → Dropout(0.4) →
-        Dense(128, relu) → Dropout(0.3) → Dense(64, relu) →
-        Dropout(0.2) → Dense(1, sigmoid)
+        BatchNormalization → Dense(128, relu) → Dropout(0.5) →
+        Dense(64, relu) → Dropout(0.3) → Dense(1, sigmoid)
 
     The base model is returned separately so the trainer can selectively
     unfreeze layers during fine-tuning (Phase 2).
@@ -58,12 +57,10 @@ def build_model(name='spiral'):
     x = base_model.output
     x = GlobalAveragePooling2D(name=f'{name}_gap')(x)
     x = BatchNormalization(name=f'{name}_bn')(x)
-    x = Dense(256, activation='relu', name=f'{name}_dense_256')(x)
-    x = Dropout(0.4, name=f'{name}_dropout_04')(x)
     x = Dense(128, activation='relu', name=f'{name}_dense_128')(x)
-    x = Dropout(0.3, name=f'{name}_dropout_03')(x)
+    x = Dropout(0.5, name=f'{name}_dropout_05')(x)
     x = Dense(64, activation='relu', name=f'{name}_dense_64')(x)
-    x = Dropout(0.2, name=f'{name}_dropout_02')(x)
+    x = Dropout(0.3, name=f'{name}_dropout_03')(x)
     output = Dense(1, activation='sigmoid', name=f'{name}_output')(x)
 
     # Create full model

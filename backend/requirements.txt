@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+tensorflow>=2.10
+numpy
+Pillow
+opencv-python-headless

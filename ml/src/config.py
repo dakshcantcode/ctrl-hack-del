@@ -9,30 +9,30 @@ No magic numbers should exist anywhere else in the codebase.
 # Image Settings
 # =============================================================================
 IMG_SIZE = 224
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 RANDOM_SEED = 42
 
 # =============================================================================
 # Phase 1: Frozen Base Training (train head only)
 # =============================================================================
-PHASE1_EPOCHS = 20
-PHASE1_LR = 1e-3
-PHASE1_PATIENCE = 7
+PHASE1_EPOCHS = 30
+PHASE1_LR = 5e-4
+PHASE1_PATIENCE = 10
 
 # =============================================================================
 # Phase 2: Fine-Tuning (unfreeze top layers)
 # =============================================================================
-PHASE2_EPOCHS = 25
-PHASE2_LR = 1e-5
-PHASE2_PATIENCE = 5
+PHASE2_EPOCHS = 30
+PHASE2_LR = 2e-5
+PHASE2_PATIENCE = 8
 UNFREEZE_LAYERS = 40  # Unfreeze last N layers of MobileNetV2
 
 # =============================================================================
 # Ensemble Weights (same for both input modes — no difference between drawn/uploaded)
 # =============================================================================
 ENSEMBLE_WEIGHTS = {
-    'spiral_cnn': 0.5,
-    'wave_cnn': 0.5,
+    'spiral_cnn': 0.4,
+    'wave_cnn': 0.6,
 }
 
 # =============================================================================
