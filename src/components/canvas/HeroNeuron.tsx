@@ -391,10 +391,10 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
         return;
       }
 
-      // Near-clip fade: branches approaching camera fade out gracefully
+      // Near-clip fade: wider fade zone (80px) for gentle lens-dissolve
       const minViewZ = Math.min(viewZs, viewZe);
-      const nearFade = minViewZ < 30
-        ? clamp((minViewZ - nearClipMin) / (30 - nearClipMin), 0, 1)
+      const nearFade = minViewZ < 80
+        ? clamp((minViewZ - nearClipMin) / (80 - nearClipMin), 0, 1)
         : 1;
 
       // Depth-fog: distant branches are dimmer
@@ -491,8 +491,8 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
       const nearClipMin = -focalLength + 50;
 
       // Near-clip fade (nucleus approaching or passing camera)
-      const nearFade = viewZ < 30
-        ? clamp((viewZ - nearClipMin) / (30 - nearClipMin), 0, 1)
+      const nearFade = viewZ < 80
+        ? clamp((viewZ - nearClipMin) / (80 - nearClipMin), 0, 1)
         : 1;
 
       // Skip if fully behind camera
@@ -587,8 +587,8 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
         if (viewZ < nearClipMin) return;
 
         // Near-clip fade
-        const nearFade = viewZ < 30
-          ? clamp((viewZ - nearClipMin) / (30 - nearClipMin), 0, 1)
+        const nearFade = viewZ < 80
+          ? clamp((viewZ - nearClipMin) / (80 - nearClipMin), 0, 1)
           : 1;
 
         // Depth-fog: distant particles are dimmer
@@ -826,14 +826,15 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
           ctx.lineCap = "round";
           ctx.stroke();
 
-          // Terminal bulb — glows with 3D proximity
-          const bulbRadius = 5 + glowIntensity * 6;
-          const bulbGlow = ctx.createRadialGradient(stemX, stemY, 0, stemX, stemY, bulbRadius * 2.5);
-          bulbGlow.addColorStop(0, `rgba(0, 255, 220, ${0.5 + glowIntensity * 0.45})`);
-          bulbGlow.addColorStop(0.5, `rgba(0, 200, 255, ${0.1 + glowIntensity * 0.3})`);
+          // Terminal bulb — glows intensely when camera is physically near
+          const bulbRadius = 5 + glowIntensity * 8;
+          const glowSpread = bulbRadius * (2.5 + proximity * 2);
+          const bulbGlow = ctx.createRadialGradient(stemX, stemY, 0, stemX, stemY, glowSpread);
+          bulbGlow.addColorStop(0, `rgba(0, 255, 220, ${0.5 + glowIntensity * 0.5})`);
+          bulbGlow.addColorStop(0.4, `rgba(0, 200, 255, ${0.1 + glowIntensity * 0.4})`);
           bulbGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.beginPath();
-          ctx.arc(stemX, stemY, bulbRadius * 2.5, 0, Math.PI * 2);
+          ctx.arc(stemX, stemY, glowSpread, 0, Math.PI * 2);
           ctx.fillStyle = bulbGlow;
           ctx.fill();
 
@@ -927,14 +928,31 @@ export default function HeroNeuron({ onCinematicChange }: HeroNeuronProps) {
         }}
       />
 
-      {/* Scroll hint — shown before user starts scrolling */}
-      {zoom < 0.03 && !isWarping && !hasReachedNucleus && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20 pointer-events-none">
-          <div className="w-5 h-8 border-2 border-cyan-500/20 rounded-full flex justify-center pt-1">
-            <div className="w-1 h-2 bg-cyan-400/40 rounded-full animate-bounce" />
-          </div>
+      {/* Ghost contextual instructions — VT323 breathing text */}
+      {!hasReachedNucleus && (
+        <div
+          className="absolute bottom-12 left-1/2 -translate-x-1/2 z-20 pointer-events-none text-center select-none"
+          style={{
+            fontFamily: "var(--font-vt323), monospace",
+            opacity: Math.max(0, 1 - zoom * 2.5),
+            transition: "opacity 0.6s ease-out",
+          }}
+        >
+          <p
+            className="text-cyan-400/60 text-lg tracking-[0.25em] uppercase"
+            style={{ animation: "ghostBreathe 3.5s ease-in-out infinite" }}
+          >
+            [ SCROLL TO DIVE &nbsp;|&nbsp; HOVER NODES TO DECODE ]
+          </p>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes ghostBreathe {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.75; }
+        }
+      `}</style>
     </div>
   );
 }
