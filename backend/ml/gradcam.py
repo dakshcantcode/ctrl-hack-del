@@ -96,7 +96,10 @@ def generate_gradcam(model, image_array, layer_name=None):
 
     # Forward pass with gradient recording
     with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(input_tensor)
+        outputs = grad_model(input_tensor)
+        # outputs may be a list [conv_outputs, predictions] in newer TF
+        conv_outputs = outputs[0]
+        predictions = outputs[1]
         # For binary classification with sigmoid, the output is P(parkinson)
         loss = predictions[:, 0]
 
