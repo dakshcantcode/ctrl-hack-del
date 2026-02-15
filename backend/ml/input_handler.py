@@ -17,8 +17,11 @@ Processing pipeline:
 
 import io
 import base64
+import logging
 import numpy as np
 from PIL import Image
+
+logger = logging.getLogger("tremortrace")
 
 # Import from sibling files within the ml/ package
 from ml.ensemble import ensemble_predict
@@ -185,13 +188,15 @@ def process_input(
         try:
             _, spiral_overlay = generate_gradcam(spiral_cnn_model, spiral_img)
             result['spiral_gradcam_base64'] = image_array_to_base64(spiral_overlay)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Spiral Grad-CAM failed: {e}", exc_info=True)
             result['spiral_gradcam_base64'] = None
 
         try:
             _, wave_overlay = generate_gradcam(wave_cnn_model, wave_img)
             result['wave_gradcam_base64'] = image_array_to_base64(wave_overlay)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Wave Grad-CAM failed: {e}", exc_info=True)
             result['wave_gradcam_base64'] = None
 
         return result

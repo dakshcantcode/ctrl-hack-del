@@ -130,6 +130,44 @@ async def model_info():
     return metadata
 
 
+@app.get("/debug/gradcam")
+async def debug_gradcam():
+    """Debug endpoint to test Grad-CAM generation with a dummy image."""
+    if not models_loaded:
+        return {"error": "Models not loaded"}
+    import traceback
+    from ml.gradcam import generate_gradcam, image_array_to_base64, find_target_layer
+    results = {}
+    # Check layer detection
+    try:
+        spiral_layer = find_target_layer(spiral_model)
+        results["spiral_target_layer"] = spiral_layer
+    except Exception as e:
+        results["spiral_target_layer_error"] = str(e)
+    try:
+        wave_layer = find_target_layer(wave_model)
+        results["wave_target_layer"] = wave_layer
+    except Exception as e:
+        results["wave_target_layer_error"] = str(e)
+    # Try gradcam on dummy input
+    dummy = np.zeros((224, 224, 3), dtype=np.float32) + 0.5
+    try:
+        heatmap, overlay = generate_gradcam(spiral_model, dummy)
+        results["spiral_gradcam"] = "success"
+        results["spiral_heatmap_shape"] = list(heatmap.shape)
+        results["spiral_overlay_shape"] = list(overlay.shape)
+    except Exception as e:
+        results["spiral_gradcam_error"] = str(e)
+        results["spiral_gradcam_traceback"] = traceback.format_exc()
+    try:
+        heatmap, overlay = generate_gradcam(wave_model, dummy)
+        results["wave_gradcam"] = "success"
+    except Exception as e:
+        results["wave_gradcam_error"] = str(e)
+        results["wave_gradcam_traceback"] = traceback.format_exc()
+    return results
+
+
 @app.post("/predict")
 async def predict(request: PredictRequest):
     """
