@@ -7,6 +7,7 @@
 
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { VT323 } from "next/font/google";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -18,6 +19,11 @@ const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
   weight: "100 900",
+});
+const vt323 = VT323({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-vt323",
 });
 
 export const metadata: Metadata = {
@@ -41,7 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-zinc-100`}
+        className={`${geistSans.variable} ${geistMono.variable} ${vt323.variable} antialiased bg-black text-zinc-100`}
       >
         {children}
       </body>

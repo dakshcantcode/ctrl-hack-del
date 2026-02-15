@@ -44,10 +44,22 @@ export function useNeuronZoom(
 
   const handleWheel = useCallback(
     (e: WheelEvent) => {
-      if (isWarping || hasReachedNucleus) return;
+      if (isWarping) return;
 
       e.preventDefault();
       const delta = e.deltaY * -0.003;
+
+      // Post-nucleus: allow scroll-back to zoom out (snap-back)
+      if (hasReachedNucleus) {
+        if (delta < 0) {
+          // Scrolling back out — reset warp state and begin zooming out
+          setHasReachedNucleus(false);
+          warpTriggered.current = false;
+          setZoom(0.7); // start zoom-out from near-threshold (below 0.85 to avoid re-warp)
+        }
+        return;
+      }
+
       setZoom((prev) => {
         const next = clamp(prev + delta, 0, 1);
 
