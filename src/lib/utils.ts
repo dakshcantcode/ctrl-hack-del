@@ -149,6 +149,72 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+/* ─── Image Conversion ─────────────────────────────────────────────────── */
+
+/**
+ * Convert a Blob to a base64-encoded data URI string.
+ * Used for sending canvas drawings to the ML backend.
+ *
+ * @param blob - The Blob to convert (typically from canvas.toBlob())
+ * @returns Promise resolving to base64 data URI (e.g., "data:image/png;base64,...")
+ */
+export function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Convert a File to a base64-encoded data URI string.
+ * Used for uploading pre-drawn images to the ML backend.
+ *
+ * @param file - The File to convert (from file input or drag-drop)
+ * @returns Promise resolving to base64 data URI (e.g., "data:image/png;base64,...")
+ */
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Validate image file type and size.
+ * Used for file upload validation before sending to backend.
+ *
+ * @param file - The File to validate
+ * @param maxSizeMB - Maximum file size in megabytes (default: 10MB)
+ * @returns Object with isValid boolean and optional error message
+ */
+export function validateImageFile(
+  file: File,
+  maxSizeMB: number = 10
+): { isValid: boolean; error?: string } {
+  // Check file type
+  if (!file.type.startsWith("image/")) {
+    return {
+      isValid: false,
+      error: "Please upload an image file (PNG, JPG, WEBP, etc.)",
+    };
+  }
+
+  // Check file size
+  const maxBytes = maxSizeMB * 1024 * 1024;
+  if (file.size > maxBytes) {
+    return {
+      isValid: false,
+      error: `File size must be under ${maxSizeMB}MB`,
+    };
+  }
+
+  return { isValid: true };
+}
+
 /* ─── Neuron Tree Generation ───────────────────────────────────────────── */
 
 export interface NeuronBranch {

@@ -37,6 +37,8 @@ export interface WaveCanvasRef {
   getAnalysis: () => WaveAnalysis | null;
   getPoints: () => SpiralPoint[];
   getImageBlob: () => Promise<Blob | null>;
+  /** Package drawing as FormData for the ML pipeline */
+  getFormData: () => Promise<FormData | null>;
 }
 
 interface WaveTestProps {
@@ -292,6 +294,26 @@ const WaveTest = forwardRef<WaveCanvasRef, WaveTestProps>(
           if (!canvas) return resolve(null);
           canvas.toBlob((blob) => resolve(blob), "image/png");
         }),
+      getFormData: async () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return null;
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob((b) => resolve(b), "image/png")
+        );
+        if (!blob) return null;
+
+        const points = pointsRef.current;
+        const fd = new FormData();
+        fd.append("image", blob, "wave.png");
+        fd.append(
+          "coordinates",
+          JSON.stringify(
+            points.map((p) => ({ x: p.x, y: p.y, t: p.t }))
+          )
+        );
+        fd.append("test_type", "wave");
+        return fd;
+      },
     }));
 
     /* ─── Initial Render ───────────────────────────────────── */

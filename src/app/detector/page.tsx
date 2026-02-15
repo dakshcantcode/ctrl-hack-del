@@ -46,6 +46,9 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SpiralTest, { type SpiralTestRef, type SpiralAnalysis } from "@/components/tests/spiral-test";
 import WaveTest, { type WaveCanvasRef, type WaveAnalysis } from "@/components/tests/wave-test";
+import GradCAMOverlay from "@/components/canvas/GradCAMOverlay";
+import PredictionResults from "@/components/results/PredictionResults";
+import { blobToBase64, fileToBase64, validateImageFile } from "@/lib/utils";
 
 /* ─── Risk Classification ─────────────────────────────────────────────── */
 
@@ -148,9 +151,97 @@ export default function DetectorPage() {
   const [activeTest, setActiveTest] = useState<string>("spiral");
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [isPredicting, setIsPredicting] = useState(false);
-  const [prediction, setPrediction] = useState<{ label: string; confidence: number } | null>(null);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [prediction, setPrediction] = useState<{
+    probability: number;
+    riskTier: string;
+    riskColor: string;
+    spiralPercent: number;
+    wavePercent: number;
+    confidence: number;
+    confidenceLabel: string;
+    spiralGradcam: string | null;
+    waveGradcam: string | null;
+    disclaimer: string;
+    modelAgreement?: number;
+    unanimous?: boolean;
+  } | null>(null);
+  const [spiralUploadedFile, setSpiralUploadedFile] = useState<File | null>(null);
+  const [waveUploadedFile, setWaveUploadedFile] = useState<File | null>(null);
+  const [spiralPreview, setSpiralPreview] = useState<string | null>(null);
+  const [wavePreview, setWavePreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [backendHealth, setBackendHealth] = useState<"checking" | "healthy" | "unhealthy">("checking");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const spiralFileInputRef = useRef<HTMLInputElement>(null);
+  const waveFileInputRef = useRef<HTMLInputElement>(null);
+  const [spiralDrawingStart, setSpiralDrawingStart] = useState<number | null>(null);
+  const [waveDrawingStart, setWaveDrawingStart] = useState<number | null>(null);
+
+  // Health check on mount
+  React.useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+        const res = await fetch(`${API_URL}/health`, {
+          method: "GET",
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+        if (res.ok) {
+          setBackendHealth("healthy");
+        } else {
+          setBackendHealth("unhealthy");
+        }
+      } catch (err) {
+        console.warn("[NeuroSketch] Backend health check failed:", err);
+        setBackendHealth("unhealthy");
+      }
+    };
+    checkHealth();
+  }, []);
+
+  // Validation helper
+  const validateDrawing = useCallback((testType: "spiral" | "wave"): { valid: boolean; error?: string } => {
+    const MIN_POINTS = 10;
+    const MIN_DURATION_MS = 1000; // 1 second
+
+    if (testType === "spiral") {
+      if (!spiralRef.current) return { valid: false, error: "Canvas not ready" };
+
+      // Check uploaded file first
+      if (spiralUploadedFile) return { valid: true };
+
+      const analysis = spiralRef.current.getAnalysis?.();
+      if (!analysis) return { valid: false, error: "No drawing detected. Please draw on the spiral canvas." };
+
+      if (analysis.pointCount < MIN_POINTS) {
+        return { valid: false, error: `Please draw more. Need at least ${MIN_POINTS} points (currently ${analysis.pointCount}).` };
+      }
+
+      if (analysis.drawingTime < MIN_DURATION_MS) {
+        const seconds = (MIN_DURATION_MS / 1000).toFixed(1);
+        return { valid: false, error: `Please draw slower. Minimum ${seconds} seconds required.` };
+      }
+    } else {
+      if (!waveRef.current) return { valid: false, error: "Canvas not ready" };
+
+      // Check uploaded file first
+      if (waveUploadedFile) return { valid: true };
+
+      const analysis = waveRef.current.getAnalysis?.();
+      if (!analysis) return { valid: false, error: "No drawing detected. Please draw on the wave canvas." };
+
+      if (analysis.pointCount < MIN_POINTS) {
+        return { valid: false, error: `Please draw more. Need at least ${MIN_POINTS} points (currently ${analysis.pointCount}).` };
+      }
+
+      if (analysis.drawingTime < MIN_DURATION_MS) {
+        const seconds = (MIN_DURATION_MS / 1000).toFixed(1);
+        return { valid: false, error: `Please draw slower. Minimum ${seconds} seconds required.` };
+      }
+    }
+
+    return { valid: true };
+  }, [spiralUploadedFile, waveUploadedFile]);
 
   const handleSpiralUpdate = useCallback((a: SpiralAnalysis) => {
     setAnalysis({
@@ -181,57 +272,178 @@ export default function DetectorPage() {
   const handleReset = useCallback(() => {
     if (activeTest === "spiral") {
       spiralRef.current?.clear();
+      setSpiralUploadedFile(null);
+      setSpiralPreview(null);
     } else {
       waveRef.current?.clear();
+      setWaveUploadedFile(null);
+      setWavePreview(null);
     }
     setAnalysis(null);
     setPrediction(null);
+    setUploadError(null);
   }, [activeTest]);
+
+  const handleSpiralFileUpload = useCallback(async (file: File) => {
+    setUploadError(null);
+
+    // Validate file
+    const validation = validateImageFile(file);
+    if (!validation.isValid) {
+      setUploadError(validation.error || "Invalid file");
+      return;
+    }
+
+    setSpiralUploadedFile(file);
+
+    // Generate preview
+    try {
+      const preview = await fileToBase64(file);
+      setSpiralPreview(preview);
+    } catch (err) {
+      setUploadError("Failed to read file");
+    }
+  }, []);
+
+  const handleWaveFileUpload = useCallback(async (file: File) => {
+    setUploadError(null);
+
+    // Validate file
+    const validation = validateImageFile(file);
+    if (!validation.isValid) {
+      setUploadError(validation.error || "Invalid file");
+      return;
+    }
+
+    setWaveUploadedFile(file);
+
+    // Generate preview
+    try {
+      const preview = await fileToBase64(file);
+      setWavePreview(preview);
+    } catch (err) {
+      setUploadError("Failed to read file");
+    }
+  }, []);
 
   const handlePredict = useCallback(async () => {
     setIsPredicting(true);
     setPrediction(null);
+    setUploadError(null);
+    setValidationError(null);
+
     try {
-      let fd: FormData | null = null;
-
-      if (uploadedFile) {
-        fd = new FormData();
-        fd.append("image", uploadedFile, uploadedFile.name);
-        fd.append("test_type", activeTest === "wave" ? "wave" : "spiral");
-      } else if (activeTest === "spiral" && spiralRef.current) {
-        fd = await spiralRef.current.getFormData();
-      } else if (activeTest === "wave" && waveRef.current) {
-        const blob = await waveRef.current.getImageBlob();
-        const points = waveRef.current.getPoints();
-        if (blob && points.length > 0) {
-          fd = new FormData();
-          fd.append("image", blob, "wave.png");
-          fd.append("coordinates", JSON.stringify(points));
-          fd.append("test_type", "wave");
-        }
-      }
-
-      if (!fd) {
-        console.warn("[NeuroSketch] No drawing data to send.");
+      // Validate both drawings/uploads
+      const spiralValidation = validateDrawing("spiral");
+      if (!spiralValidation.valid) {
+        setValidationError(spiralValidation.error || "Invalid spiral drawing");
         return;
       }
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-      const res = await fetch(`${API_URL}/predict`, {
-        method: "POST",
-        body: fd,
-      });
+      const waveValidation = validateDrawing("wave");
+      if (!waveValidation.valid) {
+        setValidationError(waveValidation.error || "Invalid wave drawing");
+        return;
+      }
 
-      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
-      const data = await res.json();
-      setPrediction({ label: data.label, confidence: data.confidence });
+      // Collect BOTH spiral and wave images (from canvas OR upload)
+      let spiralB64: string;
+      let waveB64: string;
+      let inputMode: "drawn" | "uploaded" | "mixed" = "drawn";
+
+      // Determine spiral source (uploaded file takes priority)
+      if (spiralUploadedFile) {
+        spiralB64 = await fileToBase64(spiralUploadedFile);
+        inputMode = "uploaded";
+      } else {
+        const spiralBlob = await spiralRef.current?.getImageBlob();
+        if (!spiralBlob) {
+          setUploadError("Please draw or upload a spiral image");
+          return;
+        }
+        spiralB64 = await blobToBase64(spiralBlob);
+      }
+
+      // Determine wave source (uploaded file takes priority)
+      if (waveUploadedFile) {
+        waveB64 = await fileToBase64(waveUploadedFile);
+        if (inputMode === "drawn") inputMode = "uploaded";
+        else if (inputMode !== "uploaded") inputMode = "mixed";
+      } else {
+        const waveBlob = await waveRef.current?.getImageBlob();
+        if (!waveBlob) {
+          setUploadError("Please draw or upload a wave image");
+          return;
+        }
+        waveB64 = await blobToBase64(waveBlob);
+        if (inputMode === "uploaded") inputMode = "mixed";
+      }
+
+      // Send JSON request with both images (with timeout)
+      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      try {
+        const res = await fetch(`${API_URL}/predict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            spiral_image: spiralB64,
+            wave_image: waveB64,
+            input_mode: inputMode
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => null);
+          const errorType = errorData?.detail?.error_type || "unknown";
+          const errorMsg = errorData?.detail?.error || `Server error (${res.status})`;
+
+          // Specific error handling
+          if (errorType === "models_loading") {
+            throw new Error("Models are still loading. Please wait a moment and try again.");
+          } else if (errorType === "invalid_image") {
+            throw new Error("Invalid image format. Please ensure both images are valid PNG/JPG files.");
+          } else {
+            throw new Error(errorMsg);
+          }
+        }
+
+        // Parse backend's actual response
+        const data = await res.json();
+        setPrediction({
+          probability: data.pd_probability_percent,
+          riskTier: data.risk_tier,
+          riskColor: data.risk_color,
+          spiralPercent: data.spiral_cnn_percent,
+          wavePercent: data.wave_cnn_percent,
+          confidence: data.confidence_score,
+          confidenceLabel: data.confidence_label,
+          spiralGradcam: data.spiral_gradcam_base64,
+          waveGradcam: data.wave_gradcam_base64,
+          disclaimer: data.disclaimer,
+          modelAgreement: data.model_agreement,
+          unanimous: data.unanimous
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        if (fetchErr instanceof Error && fetchErr.name === "AbortError") {
+          throw new Error("Request timed out. The server may be processing. Please try again.");
+        }
+        throw fetchErr;
+      }
     } catch (err) {
       console.error("[NeuroSketch] Prediction failed:", err);
-      setPrediction({ label: "Error — backend unreachable", confidence: 0 });
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      setUploadError(errorMsg);
     } finally {
       setIsPredicting(false);
     }
-  }, [activeTest, uploadedFile]);
+  }, [spiralUploadedFile, waveUploadedFile, validateDrawing]);
 
   const risk = analysis ? classifyRisk(analysis.tremorScore) : null;
 
@@ -269,7 +481,22 @@ export default function DetectorPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" role="main">
+        {/* Backend Health Status */}
+        {backendHealth === "unhealthy" && (
+          <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20" role="alert">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-400">Backend Unavailable</p>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Unable to connect to the ML backend. Please ensure the server is running on port 8000.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-8">
           <h2 className="text-2xl font-bold tracking-tight mb-2">
             Diagnostic Tests
@@ -286,7 +513,7 @@ export default function DetectorPage() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <Tabs value={activeTest} onValueChange={(v) => { setActiveTest(v); setAnalysis(null); setPrediction(null); setUploadedFile(null); }}>
+                  <Tabs value={activeTest} onValueChange={(v) => { setActiveTest(v); setAnalysis(null); setPrediction(null); }}>
                     <TabsList>
                       <TabsTrigger value="spiral" className="gap-1.5">
                         <Target className="w-3.5 h-3.5" />
@@ -326,108 +553,251 @@ export default function DetectorPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {/* Hidden File Inputs */}
                 <input
-                  ref={fileInputRef}
+                  ref={spiralFileInputRef}
                   type="file"
                   accept="image/*"
                   className="hidden"
                   onChange={(e) => {
-                    if (e.target.files?.[0]) setUploadedFile(e.target.files[0]);
+                    if (e.target.files?.[0]) handleSpiralFileUpload(e.target.files[0]);
+                  }}
+                />
+                <input
+                  ref={waveFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleWaveFileUpload(e.target.files[0]);
                   }}
                 />
 
-                {activeTest === "spiral" && (
-                  <div className="flex flex-col items-center gap-3">
-                    <SpiralTest
-                      ref={spiralRef}
-                      width={500}
-                      height={500}
-                      showGuide={true}
-                      onAnalysisUpdate={handleSpiralUpdate}
-                      onDrawingStart={() => setIsDrawing(true)}
-                      onDrawingEnd={() => setIsDrawing(false)}
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        Upload Spiral
-                      </Button>
-                      {uploadedFile && (
-                        <span className="text-xs text-cyan-400 truncate max-w-[160px]">
-                          {uploadedFile.name}
-                        </span>
-                      )}
-                    </div>
+                {/* Spiral Canvas - always mounted, hidden when inactive */}
+                <div className={`flex flex-col items-center gap-3 ${activeTest === "spiral" ? "" : "hidden"}`}
+                     role="region"
+                     aria-label="Spiral drawing test">
+                  <SpiralTest
+                    ref={spiralRef}
+                    width={500}
+                    height={500}
+                    showGuide={true}
+                    onAnalysisUpdate={handleSpiralUpdate}
+                    onDrawingStart={() => {
+                      setIsDrawing(true);
+                      setSpiralDrawingStart(Date.now());
+                      setValidationError(null);
+                    }}
+                    onDrawingEnd={() => {
+                      setIsDrawing(false);
+                    }}
+                  />
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs w-full"
+                      onClick={() => spiralFileInputRef.current?.click()}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {spiralUploadedFile ? "Change File" : "Upload Spiral Image"}
+                    </Button>
+
+                    {/* Spiral Upload Preview */}
+                    {spiralUploadedFile && spiralPreview && (
+                      <div className="relative p-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5">
+                        <button
+                          onClick={() => {
+                            setSpiralUploadedFile(null);
+                            setSpiralPreview(null);
+                            if (spiralFileInputRef.current) spiralFileInputRef.current.value = "";
+                          }}
+                          className="absolute -top-2 -right-2 p-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors z-10"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={spiralPreview}
+                            alt="Spiral preview"
+                            className="w-16 h-16 rounded object-contain bg-black"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-zinc-300 truncate">
+                              {spiralUploadedFile.name}
+                            </p>
+                            <p className="text-[10px] text-zinc-500">
+                              {(spiralUploadedFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                {/* Wave Canvas - always mounted, hidden when inactive */}
+                <div className={`flex flex-col items-center gap-3 ${activeTest === "wave" ? "" : "hidden"}`}
+                     role="region"
+                     aria-label="Wave drawing test">
+                  <WaveTest
+                    ref={waveRef}
+                    width={500}
+                    height={300}
+                    onAnalysisUpdate={handleWaveUpdate}
+                    onDrawingStart={() => {
+                      setIsDrawing(true);
+                      setWaveDrawingStart(Date.now());
+                      setValidationError(null);
+                    }}
+                    onDrawingEnd={() => {
+                      setIsDrawing(false);
+                    }}
+                  />
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs w-full"
+                      onClick={() => waveFileInputRef.current?.click()}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {waveUploadedFile ? "Change File" : "Upload Wave Image"}
+                    </Button>
+
+                    {/* Wave Upload Preview */}
+                    {waveUploadedFile && wavePreview && (
+                      <div className="relative p-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5">
+                        <button
+                          onClick={() => {
+                            setWaveUploadedFile(null);
+                            setWavePreview(null);
+                            if (waveFileInputRef.current) waveFileInputRef.current.value = "";
+                          }}
+                          className="absolute -top-2 -right-2 p-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors z-10"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={wavePreview}
+                            alt="Wave preview"
+                            className="w-16 h-16 rounded object-contain bg-black"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-zinc-300 truncate">
+                              {waveUploadedFile.name}
+                            </p>
+                            <p className="text-[10px] text-zinc-500">
+                              {(waveUploadedFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 )}
-                {activeTest === "wave" && (
-                  <div className="flex flex-col items-center gap-3">
-                    <WaveTest
-                      ref={waveRef}
-                      width={500}
-                      height={300}
-                      onAnalysisUpdate={handleWaveUpdate}
-                      onDrawingStart={() => setIsDrawing(true)}
-                      onDrawingEnd={() => setIsDrawing(false)}
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        Upload Wave
-                      </Button>
-                      {uploadedFile && (
-                        <span className="text-xs text-cyan-400 truncate max-w-[160px]">
-                          {uploadedFile.name}
-                        </span>
-                      )}
+
+                {/* Validation Error Display */}
+                {validationError && (
+                  <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20" role="alert">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-amber-400">Drawing Incomplete</p>
+                        <p className="text-xs text-zinc-400 mt-1">{validationError}</p>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Predict Button */}
-                {(analysis || uploadedFile) && (
+                {/* Upload/Prediction Error Display */}
+                {uploadError && (
+                  <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20" role="alert">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-red-400">Prediction Failed</p>
+                        <p className="text-xs text-zinc-400 mt-1">{uploadError}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 h-7 text-xs"
+                          onClick={handlePredict}
+                          disabled={isPredicting}
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1.5" />
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Predict Button - Show if ANY content available (drawn or uploaded) */}
+                {(analysis || spiralUploadedFile || waveUploadedFile) && (
                   <div className="mt-4 flex justify-end">
                     <Button
                       size="sm"
                       className="gap-1.5 text-xs"
                       onClick={handlePredict}
-                      disabled={isPredicting}
+                      disabled={isPredicting || backendHealth === "unhealthy"}
+                      aria-label={isPredicting ? "Running prediction analysis" : "Run Parkinson's disease screening prediction"}
+                      aria-busy={isPredicting}
                     >
                       {isPredicting ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
                       ) : (
-                        <Send className="w-3.5 h-3.5" />
+                        <Send className="w-3.5 h-3.5" aria-hidden="true" />
                       )}
                       {isPredicting ? "Predicting…" : "Predict"}
                     </Button>
                   </div>
                 )}
 
-                {/* ML Prediction Result */}
+                {/* ML Prediction Result - Enhanced Component */}
                 {prediction && (
-                  <div className={`mt-3 p-3 rounded-lg border text-sm ${
-                    prediction.confidence > 0
-                      ? "border-cyan-500/20 bg-cyan-500/5"
-                      : "border-red-500/20 bg-red-500/5"
-                  }`}>
-                    <p className="font-medium text-zinc-200">
-                      Result: <span className="text-cyan-400">{prediction.label}</span>
-                    </p>
-                    {prediction.confidence > 0 && (
-                      <p className="text-xs text-zinc-500 mt-1">
-                        Confidence: {(prediction.confidence * 100).toFixed(1)}%
-                      </p>
-                    )}
+                  <div className="mt-3">
+                    <PredictionResults prediction={prediction} />
+                  </div>
+                )}
+
+                {/* Grad-CAM Explainability Visualization */}
+                {prediction && (prediction.spiralGradcam || prediction.waveGradcam) && (
+                  <div className="mt-4 pt-4 border-t border-zinc-800">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-cyan-400" />
+                      <h3 className="text-sm font-medium text-zinc-300">
+                        Model Explainability
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {prediction.spiralGradcam && (
+                        <GradCAMOverlay
+                          gradcamImage={prediction.spiralGradcam}
+                          testLabel="Spiral"
+                          width={240}
+                          height={240}
+                        />
+                      )}
+                      {prediction.waveGradcam && (
+                        <GradCAMOverlay
+                          gradcamImage={prediction.waveGradcam}
+                          testLabel="Wave"
+                          width={240}
+                          height={144}
+                        />
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -445,8 +815,44 @@ export default function DetectorPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {analysis && risk ? (
+                {prediction ? (
                   <>
+                    {/* ML-Based Risk (when prediction available) */}
+                    <div
+                      className="p-4 rounded-lg border"
+                      style={{
+                        backgroundColor: `${prediction.riskColor}10`,
+                        borderColor: `${prediction.riskColor}30`
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Brain className="w-5 h-5" style={{ color: prediction.riskColor }} />
+                        <span className="font-semibold text-sm" style={{ color: prediction.riskColor }}>
+                          {prediction.riskTier}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        ML-based assessment from dual CNN analysis (Spiral + Wave)
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-400">PD Probability</span>
+                        <span className="font-mono font-bold" style={{ color: prediction.riskColor }}>
+                          {prediction.probability.toFixed(1)}%
+                        </span>
+                      </div>
+                      <Progress value={prediction.probability} />
+                    </div>
+
+                    <div className="text-[10px] uppercase tracking-widest text-zinc-600 text-center">
+                      Neural Network Prediction
+                    </div>
+                  </>
+                ) : analysis && risk ? (
+                  <>
+                    {/* Local Tremor Analysis (fallback when no prediction) */}
                     <div
                       className={`p-4 rounded-lg border ${risk.bgColor}`}
                     >
