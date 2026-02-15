@@ -100,6 +100,9 @@ def generate_gradcam(model, image_array, layer_name=None):
         # outputs may be a list [conv_outputs, predictions] in newer TF
         conv_outputs = outputs[0]
         predictions = outputs[1]
+        # Ensure predictions is a tensor/array, not a list (TF2.x compatibility)
+        if isinstance(predictions, list):
+            predictions = predictions[0]
         # For binary classification with sigmoid, the output is P(parkinson)
         loss = predictions[:, 0]
 
