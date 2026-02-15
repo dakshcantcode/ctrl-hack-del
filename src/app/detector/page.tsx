@@ -174,8 +174,6 @@ export default function DetectorPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const spiralFileInputRef = useRef<HTMLInputElement>(null);
   const waveFileInputRef = useRef<HTMLInputElement>(null);
-  const [spiralDrawingStart, setSpiralDrawingStart] = useState<number | null>(null);
-  const [waveDrawingStart, setWaveDrawingStart] = useState<number | null>(null);
 
   // Health check on mount
   React.useEffect(() => {
@@ -300,7 +298,7 @@ export default function DetectorPage() {
     try {
       const preview = await fileToBase64(file);
       setSpiralPreview(preview);
-    } catch (err) {
+    } catch {
       setUploadError("Failed to read file");
     }
   }, []);
@@ -321,7 +319,7 @@ export default function DetectorPage() {
     try {
       const preview = await fileToBase64(file);
       setWavePreview(preview);
-    } catch (err) {
+    } catch {
       setUploadError("Failed to read file");
     }
   }, []);
@@ -537,7 +535,7 @@ export default function DetectorPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => { handleReset(); setUploadedFile(null); }}
+                        onClick={handleReset}
                         className="gap-1.5"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -585,8 +583,7 @@ export default function DetectorPage() {
                     onAnalysisUpdate={handleSpiralUpdate}
                     onDrawingStart={() => {
                       setIsDrawing(true);
-                      setSpiralDrawingStart(Date.now());
-                      setValidationError(null);
+                                            setValidationError(null);
                     }}
                     onDrawingEnd={() => {
                       setIsDrawing(false);
@@ -651,8 +648,7 @@ export default function DetectorPage() {
                     onAnalysisUpdate={handleWaveUpdate}
                     onDrawingStart={() => {
                       setIsDrawing(true);
-                      setWaveDrawingStart(Date.now());
-                      setValidationError(null);
+                                            setValidationError(null);
                     }}
                     onDrawingEnd={() => {
                       setIsDrawing(false);
@@ -705,7 +701,6 @@ export default function DetectorPage() {
                     )}
                   </div>
                 </div>
-                )}
 
                 {/* Validation Error Display */}
                 {validationError && (
